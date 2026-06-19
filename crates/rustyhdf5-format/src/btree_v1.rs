@@ -4,6 +4,7 @@
 use alloc::vec::Vec;
 
 use crate::error::FormatError;
+use crate::utils::read_offset;
 
 /// A parsed B-tree v1 node.
 #[derive(Debug, Clone)]
@@ -22,25 +23,6 @@ pub struct BTreeV1Node {
     pub keys: Vec<u64>,
     /// Child addresses (entries_used values).
     pub children: Vec<u64>,
-}
-
-fn read_offset(data: &[u8], pos: usize, size: u8) -> Result<u64, FormatError> {
-    let s = size as usize;
-    if pos + s > data.len() {
-        return Err(FormatError::UnexpectedEof {
-            expected: pos + s,
-            available: data.len(),
-        });
-    }
-    let slice = &data[pos..pos + s];
-    Ok(match size {
-        2 => u16::from_le_bytes([slice[0], slice[1]]) as u64,
-        4 => u32::from_le_bytes([slice[0], slice[1], slice[2], slice[3]]) as u64,
-        8 => u64::from_le_bytes([
-            slice[0], slice[1], slice[2], slice[3], slice[4], slice[5], slice[6], slice[7],
-        ]),
-        _ => return Err(FormatError::InvalidOffsetSize(size)),
-    })
 }
 
 fn is_undefined(data: &[u8], pos: usize, size: u8) -> bool {

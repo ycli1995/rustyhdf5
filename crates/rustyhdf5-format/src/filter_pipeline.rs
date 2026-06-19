@@ -7,6 +7,7 @@ extern crate alloc;
 use alloc::{string::String, string::ToString, vec, vec::Vec};
 
 use crate::error::FormatError;
+use crate::utils::ensure_len;
 
 /// Well-known filter IDs.
 pub const FILTER_DEFLATE: u16 = 1;
@@ -36,16 +37,6 @@ pub struct FilterPipeline {
     pub version: u8,
     /// Ordered list of filters.
     pub filters: Vec<FilterDescription>,
-}
-
-fn ensure_len(data: &[u8], offset: usize, needed: usize) -> Result<(), FormatError> {
-    match offset.checked_add(needed) {
-        Some(end) if end <= data.len() => Ok(()),
-        _ => Err(FormatError::UnexpectedEof {
-            expected: offset.saturating_add(needed),
-            available: data.len(),
-        }),
-    }
 }
 
 impl FilterPipeline {

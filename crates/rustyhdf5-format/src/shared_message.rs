@@ -21,6 +21,7 @@ use alloc::vec::Vec;
 
 use crate::btree_v2::{BTreeV2Header, collect_btree_v2_records};
 use crate::error::FormatError;
+use crate::utils::{read_offset, ensure_len};
 use crate::fractal_heap::FractalHeapHeader;
 use crate::message_type::MessageType;
 use crate::object_header::ObjectHeader;
@@ -95,35 +96,6 @@ pub struct SohmEntry {
     pub mesg_index: Option<u16>,
     /// Object header address (when location = 1).
     pub oh_addr: Option<u64>,
-}
-
-fn read_offset(data: &[u8], pos: usize, size: u8) -> Result<u64, FormatError> {
-    let s = size as usize;
-    if pos + s > data.len() {
-        return Err(FormatError::UnexpectedEof {
-            expected: pos + s,
-            available: data.len(),
-        });
-    }
-    Ok(match size {
-        2 => u16::from_le_bytes([data[pos], data[pos + 1]]) as u64,
-        4 => u32::from_le_bytes([data[pos], data[pos + 1], data[pos + 2], data[pos + 3]]) as u64,
-        8 => u64::from_le_bytes([
-            data[pos], data[pos + 1], data[pos + 2], data[pos + 3],
-            data[pos + 4], data[pos + 5], data[pos + 6], data[pos + 7],
-        ]),
-        _ => return Err(FormatError::InvalidOffsetSize(size)),
-    })
-}
-
-fn ensure_len(data: &[u8], pos: usize, needed: usize) -> Result<(), FormatError> {
-    match pos.checked_add(needed) {
-        Some(end) if end <= data.len() => Ok(()),
-        _ => Err(FormatError::UnexpectedEof {
-            expected: pos.saturating_add(needed),
-            available: data.len(),
-        }),
-    }
 }
 
 /// Check whether a header message has its shared flag set.

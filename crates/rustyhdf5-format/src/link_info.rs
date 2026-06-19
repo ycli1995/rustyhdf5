@@ -1,6 +1,7 @@
 //! HDF5 Link Info message parsing (message type 0x0002).
 
 use crate::error::FormatError;
+use crate::utils::{read_offset, ensure_len};
 
 /// Parsed Link Info message from a v2 group object header.
 #[derive(Debug, Clone, PartialEq)]
@@ -15,47 +16,12 @@ pub struct LinkInfoMessage {
     pub btree_creation_order_address: Option<u64>,
 }
 
-fn read_offset(data: &[u8], pos: usize, size: u8) -> Result<u64, FormatError> {
-    let s = size as usize;
-    if pos + s > data.len() {
-        return Err(FormatError::UnexpectedEof {
-            expected: pos + s,
-            available: data.len(),
-        });
-    }
-    Ok(match size {
-        2 => u16::from_le_bytes([data[pos], data[pos + 1]]) as u64,
-        4 => u32::from_le_bytes([data[pos], data[pos + 1], data[pos + 2], data[pos + 3]]) as u64,
-        8 => u64::from_le_bytes([
-            data[pos],
-            data[pos + 1],
-            data[pos + 2],
-            data[pos + 3],
-            data[pos + 4],
-            data[pos + 5],
-            data[pos + 6],
-            data[pos + 7],
-        ]),
-        _ => return Err(FormatError::InvalidOffsetSize(size)),
-    })
-}
-
 fn is_undefined(val: u64, offset_size: u8) -> bool {
     match offset_size {
         2 => val == 0xFFFF,
         4 => val == 0xFFFF_FFFF,
         8 => val == 0xFFFF_FFFF_FFFF_FFFF,
         _ => false,
-    }
-}
-
-fn ensure_len(data: &[u8], pos: usize, needed: usize) -> Result<(), FormatError> {
-    match pos.checked_add(needed) {
-        Some(end) if end <= data.len() => Ok(()),
-        _ => Err(FormatError::UnexpectedEof {
-            expected: pos.saturating_add(needed),
-            available: data.len(),
-        }),
     }
 }
 

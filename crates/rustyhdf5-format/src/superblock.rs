@@ -7,6 +7,7 @@ use byteorder::{ByteOrder, LittleEndian};
 
 use crate::error::FormatError;
 use crate::signature::HDF5_SIGNATURE;
+use crate::utils::read_offset;
 
 /// Parsed HDF5 superblock (all versions).
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -39,24 +40,6 @@ pub struct Superblock {
     pub superblock_extension_address: Option<u64>,
     /// CRC32C checksum (v2/v3 only).
     pub checksum: Option<u32>,
-}
-
-/// Read an unsigned integer of `size` bytes (LE) from `data` at `pos`.
-fn read_offset(data: &[u8], pos: usize, size: u8) -> Result<u64, FormatError> {
-    let s = size as usize;
-    if pos + s > data.len() {
-        return Err(FormatError::UnexpectedEof {
-            expected: pos + s,
-            available: data.len(),
-        });
-    }
-    let slice = &data[pos..pos + s];
-    Ok(match size {
-        2 => LittleEndian::read_u16(slice) as u64,
-        4 => LittleEndian::read_u32(slice) as u64,
-        8 => LittleEndian::read_u64(slice),
-        _ => unreachable!(), // validated before calling
-    })
 }
 
 fn validate_sizes(offset_size: u8, length_size: u8) -> Result<(), FormatError> {

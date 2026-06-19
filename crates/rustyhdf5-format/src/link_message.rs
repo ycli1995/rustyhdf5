@@ -5,6 +5,7 @@ use alloc::{string::String, vec::Vec};
 
 use crate::datatype::CharacterSet;
 use crate::error::FormatError;
+use crate::utils::{read_offset, ensure_len};
 
 /// The type of a link in an HDF5 v2 group.
 #[derive(Debug, Clone, PartialEq)]
@@ -31,44 +32,6 @@ pub struct LinkMessage {
     pub creation_order: Option<u64>,
     /// Character set of the link name.
     pub charset: CharacterSet,
-}
-
-fn read_offset(data: &[u8], pos: usize, size: u8) -> Result<u64, FormatError> {
-    let s = size as usize;
-    if pos + s > data.len() {
-        return Err(FormatError::UnexpectedEof {
-            expected: pos + s,
-            available: data.len(),
-        });
-    }
-    Ok(match size {
-        1 => data[pos] as u64,
-        2 => u16::from_le_bytes([data[pos], data[pos + 1]]) as u64,
-        4 => u32::from_le_bytes([data[pos], data[pos + 1], data[pos + 2], data[pos + 3]]) as u64,
-        8 => u64::from_le_bytes([
-            data[pos],
-            data[pos + 1],
-            data[pos + 2],
-            data[pos + 3],
-            data[pos + 4],
-            data[pos + 5],
-            data[pos + 6],
-            data[pos + 7],
-        ]),
-        _ => {
-            return Err(FormatError::InvalidOffsetSize(size));
-        }
-    })
-}
-
-fn ensure_len(data: &[u8], pos: usize, needed: usize) -> Result<(), FormatError> {
-    match pos.checked_add(needed) {
-        Some(end) if end <= data.len() => Ok(()),
-        _ => Err(FormatError::UnexpectedEof {
-            expected: pos.saturating_add(needed),
-            available: data.len(),
-        }),
-    }
 }
 
 impl LinkMessage {

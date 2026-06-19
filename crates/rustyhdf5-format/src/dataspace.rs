@@ -4,6 +4,7 @@
 use alloc::vec::Vec;
 
 use crate::error::FormatError;
+use crate::utils::ensure_len;
 
 /// Type of dataspace.
 #[derive(Debug, Clone, PartialEq)]
@@ -27,16 +28,6 @@ pub struct Dataspace {
     pub dimensions: Vec<u64>,
     /// Maximum dimension sizes, if present. `u64::MAX` means unlimited.
     pub max_dimensions: Option<Vec<u64>>,
-}
-
-fn ensure_len(data: &[u8], offset: usize, needed: usize) -> Result<(), FormatError> {
-    match offset.checked_add(needed) {
-        Some(end) if end <= data.len() => Ok(()),
-        _ => Err(FormatError::UnexpectedEof {
-            expected: offset.saturating_add(needed),
-            available: data.len(),
-        }),
-    }
 }
 
 fn read_length(data: &[u8], offset: usize, length_size: u8) -> Result<u64, FormatError> {

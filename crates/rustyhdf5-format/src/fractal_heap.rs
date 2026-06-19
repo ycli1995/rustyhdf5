@@ -7,6 +7,7 @@ use alloc::vec::Vec;
 use byteorder::{ByteOrder, LittleEndian};
 
 use crate::error::FormatError;
+use crate::utils::{read_offset, ensure_len};
 
 /// Parsed fractal heap header (signature "FRHP").
 #[derive(Debug, Clone)]
@@ -33,35 +34,6 @@ pub struct FractalHeapHeader {
     pub current_rows_in_root_indirect_block: u16,
     /// Total number of managed objects.
     pub managed_objects_count: u64,
-}
-
-fn read_offset(data: &[u8], pos: usize, size: u8) -> Result<u64, FormatError> {
-    let s = size as usize;
-    if pos + s > data.len() {
-        return Err(FormatError::UnexpectedEof {
-            expected: pos + s,
-            available: data.len(),
-        });
-    }
-    Ok(match size {
-        2 => u16::from_le_bytes([data[pos], data[pos + 1]]) as u64,
-        4 => u32::from_le_bytes([data[pos], data[pos + 1], data[pos + 2], data[pos + 3]]) as u64,
-        8 => u64::from_le_bytes([
-            data[pos], data[pos + 1], data[pos + 2], data[pos + 3],
-            data[pos + 4], data[pos + 5], data[pos + 6], data[pos + 7],
-        ]),
-        _ => return Err(FormatError::InvalidOffsetSize(size)),
-    })
-}
-
-fn ensure_len(data: &[u8], pos: usize, needed: usize) -> Result<(), FormatError> {
-    match pos.checked_add(needed) {
-        Some(end) if end <= data.len() => Ok(()),
-        _ => Err(FormatError::UnexpectedEof {
-            expected: pos.saturating_add(needed),
-            available: data.len(),
-        }),
-    }
 }
 
 fn is_undefined(val: u64, offset_size: u8) -> bool {

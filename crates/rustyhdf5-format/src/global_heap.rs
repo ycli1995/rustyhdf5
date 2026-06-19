@@ -4,6 +4,7 @@
 use alloc::vec::Vec;
 
 use crate::error::FormatError;
+use crate::utils::ensure_len;
 
 /// Magic signature for global heap collections.
 const GCOL_SIGNATURE: [u8; 4] = [b'G', b'C', b'O', b'L'];
@@ -26,16 +27,6 @@ pub struct GlobalHeapObject {
     pub reference_count: u16,
     /// Object data.
     pub data: Vec<u8>,
-}
-
-fn ensure_len(data: &[u8], offset: usize, needed: usize) -> Result<(), FormatError> {
-    match offset.checked_add(needed) {
-        Some(end) if end <= data.len() => Ok(()),
-        _ => Err(FormatError::UnexpectedEof {
-            expected: offset.saturating_add(needed),
-            available: data.len(),
-        }),
-    }
 }
 
 fn read_length(data: &[u8], offset: usize, length_size: u8) -> Result<u64, FormatError> {

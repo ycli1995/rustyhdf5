@@ -7,6 +7,7 @@ use byteorder::{ByteOrder, LittleEndian};
 
 use crate::error::FormatError;
 use crate::message_type::MessageType;
+use crate::utils::{read_offset, ensure_len};
 
 /// OHDR signature for v2 object headers.
 const OHDR_SIGNATURE: [u8; 4] = [b'O', b'H', b'D', b'R'];
@@ -48,31 +49,6 @@ pub struct ObjectHeader {
     pub change_time: Option<u32>,
     /// Birth time (v2, when flags bit 2 set).
     pub birth_time: Option<u32>,
-}
-
-fn ensure_len(data: &[u8], offset: usize, needed: usize) -> Result<(), FormatError> {
-    match offset.checked_add(needed) {
-        Some(end) if end <= data.len() => Ok(()),
-        _ => Err(FormatError::UnexpectedEof {
-            expected: offset.saturating_add(needed),
-            available: data.len(),
-        }),
-    }
-}
-
-fn read_offset(data: &[u8], pos: usize, size: u8) -> Result<u64, FormatError> {
-    let s = size as usize;
-    ensure_len(data, pos, s)?;
-    let slice = &data[pos..pos + s];
-    Ok(match size {
-        2 => LittleEndian::read_u16(slice) as u64,
-        4 => LittleEndian::read_u32(slice) as u64,
-        8 => LittleEndian::read_u64(slice),
-        1 => slice[0] as u64,
-        _ => {
-            return Err(FormatError::InvalidOffsetSize(size));
-        }
-    })
 }
 
 impl ObjectHeader {

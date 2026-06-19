@@ -9,6 +9,7 @@ use crate::data_read;
 use crate::dataspace::Dataspace;
 use crate::datatype::Datatype;
 use crate::error::FormatError;
+use crate::utils::ensure_len;
 use crate::fractal_heap::FractalHeapHeader;
 use crate::message_type::MessageType;
 use crate::object_header::ObjectHeader;
@@ -26,16 +27,6 @@ pub struct AttributeMessage {
     pub dataspace: Dataspace,
     /// Raw attribute value data.
     pub raw_data: Vec<u8>,
-}
-
-fn ensure_len(data: &[u8], offset: usize, needed: usize) -> Result<(), FormatError> {
-    match offset.checked_add(needed) {
-        Some(end) if end <= data.len() => Ok(()),
-        _ => Err(FormatError::UnexpectedEof {
-            expected: offset.saturating_add(needed),
-            available: data.len(),
-        }),
-    }
 }
 
 /// Round up to the next multiple of 8.

@@ -8,6 +8,7 @@ use alloc::{format, vec, vec::Vec};
 
 use crate::chunked_read::ChunkInfo;
 use crate::error::FormatError;
+use crate::utils::read_offset;
 
 /// Parsed Fixed Array header (FAHD).
 #[derive(Debug, Clone)]
@@ -22,25 +23,6 @@ pub struct FixedArrayHeader {
     pub num_elements: u64,
     /// Address of the data block.
     pub data_block_address: u64,
-}
-
-fn read_offset(data: &[u8], pos: usize, size: u8) -> Result<u64, FormatError> {
-    let s = size as usize;
-    if pos + s > data.len() {
-        return Err(FormatError::UnexpectedEof {
-            expected: pos + s,
-            available: data.len(),
-        });
-    }
-    let slice = &data[pos..pos + s];
-    Ok(match size {
-        2 => u16::from_le_bytes([slice[0], slice[1]]) as u64,
-        4 => u32::from_le_bytes([slice[0], slice[1], slice[2], slice[3]]) as u64,
-        8 => u64::from_le_bytes([
-            slice[0], slice[1], slice[2], slice[3], slice[4], slice[5], slice[6], slice[7],
-        ]),
-        _ => return Err(FormatError::InvalidOffsetSize(size)),
-    })
 }
 
 fn read_length(data: &[u8], pos: usize, size: u8) -> Result<u64, FormatError> {

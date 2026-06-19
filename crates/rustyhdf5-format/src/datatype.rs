@@ -9,6 +9,7 @@ use alloc::{boxed::Box, string::String, vec, vec::Vec};
 use byteorder::{ByteOrder, LittleEndian};
 
 use crate::error::FormatError;
+use crate::utils::ensure_len;
 
 /// Byte order of numeric data.
 #[derive(Debug, Clone, PartialEq)]
@@ -134,16 +135,6 @@ pub enum Datatype {
         base_type: Box<Datatype>,
         dimensions: Vec<u32>,
     },
-}
-
-fn ensure_len(data: &[u8], offset: usize, needed: usize) -> Result<(), FormatError> {
-    match offset.checked_add(needed) {
-        Some(end) if end <= data.len() => Ok(()),
-        _ => Err(FormatError::UnexpectedEof {
-            expected: offset.saturating_add(needed),
-            available: data.len(),
-        }),
-    }
 }
 
 fn parse_string_padding(val: u8) -> Result<StringPadding, FormatError> {

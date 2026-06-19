@@ -4,6 +4,7 @@
 use alloc::string::String;
 
 use crate::error::FormatError;
+use crate::utils::read_offset;
 
 /// Parsed HDF5 Local Heap header.
 #[derive(Debug, Clone)]
@@ -14,25 +15,6 @@ pub struct LocalHeap {
     pub free_list_head_offset: u64,
     /// File address of the data segment.
     pub data_segment_address: u64,
-}
-
-fn read_offset(data: &[u8], pos: usize, size: u8) -> Result<u64, FormatError> {
-    let s = size as usize;
-    if pos + s > data.len() {
-        return Err(FormatError::UnexpectedEof {
-            expected: pos + s,
-            available: data.len(),
-        });
-    }
-    let slice = &data[pos..pos + s];
-    Ok(match size {
-        2 => u16::from_le_bytes([slice[0], slice[1]]) as u64,
-        4 => u32::from_le_bytes([slice[0], slice[1], slice[2], slice[3]]) as u64,
-        8 => u64::from_le_bytes([
-            slice[0], slice[1], slice[2], slice[3], slice[4], slice[5], slice[6], slice[7],
-        ]),
-        _ => return Err(FormatError::InvalidOffsetSize(size)),
-    })
 }
 
 impl LocalHeap {
