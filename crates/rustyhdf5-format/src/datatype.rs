@@ -9,7 +9,7 @@ use alloc::{boxed::Box, string::String, vec, vec::Vec};
 use byteorder::{ByteOrder, LittleEndian};
 
 use crate::error::FormatError;
-use crate::utils::ensure_len;
+use crate::utils::{ensure_len, pad8};
 
 /// Byte order of numeric data.
 #[derive(Debug, Clone, PartialEq)]
@@ -204,6 +204,30 @@ fn read_uint(data: &[u8], offset: usize, nbytes: usize) -> Result<u64, FormatErr
     })
 }
 
+/// Parse compound member entries: name, byte_offset, and nested datatype.
+fn parse_compound_members(
+    data: &[u8],
+    members: &mut Vec<CompoundMember>,
+    pos: &mut usize,
+    ob: usize,
+) -> Result<(), FormatError> {
+    let num_members = members.capacity();
+    for _ in 0..num_members {
+        let (name, name_len) = read_null_terminated_string(data, *pos)?;
+        *pos += name_len;
+        let byte_offset = read_uint(data, *pos, ob)?;
+        *pos += ob;
+        let (member_dt, consumed) = Datatype::parse(&data[*pos..])?;
+        *pos += consumed;
+        members.push(CompoundMember {
+            name,
+            byte_offset,
+            datatype: member_dt,
+        });
+    }
+    Ok(())
+}
+
 impl Datatype {
     /// Parse a datatype message from raw bytes.
     ///
@@ -326,7 +350,7 @@ impl Datatype {
                 ensure_len(data, pos, tag_len)?;
                 let tag = data[pos..pos + tag_len].to_vec();
                 // Tags are padded to multiple of 8 bytes
-                let padded = (tag_len + 7) & !7;
+                let padded = pad8(tag_len);
                 let pos = 8 + padded; // from start of properties
                 Ok((Datatype::Opaque { size, tag }, pos))
             }
@@ -337,19 +361,7 @@ impl Datatype {
 
                 if version == 3 || version == 4 {
                     let ob = offset_bytes_for_size(size);
-                    for _ in 0..num_members {
-                        let (name, name_len) = read_null_terminated_string(data, pos)?;
-                        pos += name_len;
-                        let byte_offset = read_uint(data, pos, ob)?;
-                        pos += ob;
-                        let (member_dt, consumed) = Datatype::parse(&data[pos..])?;
-                        pos += consumed;
-                        members.push(CompoundMember {
-                            name,
-                            byte_offset,
-                            datatype: member_dt,
-                        });
-                    }
+                    parse_compound_members(data, &mut members, &mut pos, ob)?;
                 } else if version == 1 || version == 2 {
                     // v1/v2: name, offset(4), dimensionality(1), reserved(3), dim_perm(4),
                     //         reserved_dims(up to 4*4=16), member datatype
@@ -359,7 +371,7 @@ impl Datatype {
                         // v1: names padded to 8-byte boundary
                         if version == 1 {
                             let total_name_bytes = name_len;
-                            let padded = (total_name_bytes + 7) & !7;
+                            let padded = pad8(total_name_bytes);
                             pos = pos - name_len + padded;
                         }
                         ensure_len(data, pos, 4)?;
@@ -410,7 +422,7 @@ impl Datatype {
                 for _ in 0..num_members {
                     let (name, name_len) = read_null_terminated_string(data, pos)?;
                     if version < 3 {
-                        let padded = (name_len + 7) & !7;
+                        let padded = pad8(name_len);
                         pos += padded;
                     } else {
                         pos += name_len;
@@ -520,21 +532,9 @@ impl Datatype {
                 // It's just recognized as a separate class. For now parse the 2 members
                 // as compound.
                 let num_members = (bf0 as u16) | ((bf1 as u16) << 8);
-                let mut members = Vec::with_capacity(num_members as usize);
                 let ob = offset_bytes_for_size(size);
-                for _ in 0..num_members {
-                    let (name, name_len) = read_null_terminated_string(data, pos)?;
-                    pos += name_len;
-                    let byte_offset = read_uint(data, pos, ob)?;
-                    pos += ob;
-                    let (member_dt, consumed) = Datatype::parse(&data[pos..])?;
-                    pos += consumed;
-                    members.push(CompoundMember {
-                        name,
-                        byte_offset,
-                        datatype: member_dt,
-                    });
-                }
+                let mut members = Vec::with_capacity(num_members as usize);
+                parse_compound_members(data, &mut members, &mut pos, ob)?;
                 Ok((Datatype::Compound { size, members }, pos))
             }
             _ => Err(FormatError::InvalidDatatypeClass(class_id)),
