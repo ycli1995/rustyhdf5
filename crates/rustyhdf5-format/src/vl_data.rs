@@ -9,7 +9,7 @@ use alloc::{string::String, vec::Vec};
 
 use crate::error::FormatError;
 use crate::global_heap::GlobalHeapCollection;
-use crate::utils::read_offset;
+use crate::utils::{read_offset, is_undefined_offset};
 
 /// A parsed variable-length element reference (global heap ID).
 #[derive(Debug, Clone)]
@@ -70,16 +70,6 @@ pub fn parse_vl_references(
     Ok(elements)
 }
 
-/// Check if an address represents an undefined/null address.
-fn is_undefined_address(addr: u64, offset_size: u8) -> bool {
-    match offset_size {
-        2 => addr == 0xFFFF,
-        4 => addr == 0xFFFF_FFFF,
-        8 => addr == 0xFFFF_FFFF_FFFF_FFFF,
-        _ => false,
-    }
-}
-
 /// Resolve VL strings from raw data by looking up each element in the global heap.
 pub fn read_vl_strings(
     file_data: &[u8],
@@ -92,7 +82,7 @@ pub fn read_vl_strings(
     let mut result = Vec::with_capacity(refs.len());
 
     for vl in &refs {
-        if vl.length == 0 && is_undefined_address(vl.collection_address, offset_size) {
+        if vl.length == 0 && is_undefined_offset(vl.collection_address, offset_size) {
             result.push(String::new());
             continue;
         }
@@ -134,7 +124,7 @@ pub fn read_vl_bytes(
     let mut result = Vec::with_capacity(refs.len());
 
     for vl in &refs {
-        if vl.length == 0 && (is_undefined_address(vl.collection_address, offset_size) || vl.collection_address == 0) {
+        if vl.length == 0 && (is_undefined_offset(vl.collection_address, offset_size) || vl.collection_address == 0) {
             result.push(Vec::new());
             continue;
         }

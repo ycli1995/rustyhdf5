@@ -8,7 +8,7 @@ use alloc::{format, vec, vec::Vec};
 
 use crate::chunked_read::ChunkInfo;
 use crate::error::FormatError;
-use crate::utils::read_offset;
+use crate::utils::{read_offset, is_undefined_bytes};
 
 /// Parsed Fixed Array header (FAHD).
 #[derive(Debug, Clone)]
@@ -27,14 +27,6 @@ pub struct FixedArrayHeader {
 
 fn read_length(data: &[u8], pos: usize, size: u8) -> Result<u64, FormatError> {
     read_offset(data, pos, size)
-}
-
-fn is_undefined(data: &[u8], pos: usize, size: u8) -> bool {
-    let s = size as usize;
-    if pos + s > data.len() {
-        return false;
-    }
-    data[pos..pos + s].iter().all(|&b| b == 0xFF)
 }
 
 impl FixedArrayHeader {
@@ -168,7 +160,7 @@ pub fn read_fixed_array_chunks(
             let address = read_offset(elem_data, 0, offset_size)?;
             pos += os;
 
-            if is_undefined(file_data, db_offset + pos - os, offset_size) {
+            if is_undefined_bytes(file_data, db_offset + pos - os, offset_size) {
                 continue; // unallocated chunk
             }
 
@@ -204,7 +196,7 @@ pub fn read_fixed_array_chunks(
             ]);
             pos += elem_total;
 
-            if is_undefined(file_data, db_offset + pos - elem_total, offset_size) {
+            if is_undefined_bytes(file_data, db_offset + pos - elem_total, offset_size) {
                 continue; // unallocated chunk
             }
 

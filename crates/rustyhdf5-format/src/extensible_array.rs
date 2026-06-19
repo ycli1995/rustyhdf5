@@ -11,7 +11,7 @@ use alloc::{format, vec, vec::Vec};
 
 use crate::chunked_read::ChunkInfo;
 use crate::error::FormatError;
-use crate::utils::read_offset;
+use crate::utils::{read_offset, is_undefined_offset, is_undefined_bytes};
 
 /// Parsed Extensible Array header (AEHD).
 #[derive(Debug, Clone)]
@@ -34,23 +34,6 @@ pub struct ExtensibleArrayHeader {
     pub num_elements: u64,
     /// Address of the index block.
     pub index_block_address: u64,
-}
-
-fn is_undefined_addr(addr: u64, offset_size: u8) -> bool {
-    match offset_size {
-        2 => addr == 0xFFFF,
-        4 => addr == 0xFFFF_FFFF,
-        8 => addr == 0xFFFF_FFFF_FFFF_FFFF,
-        _ => false,
-    }
-}
-
-fn is_undefined(data: &[u8], pos: usize, size: u8) -> bool {
-    let s = size as usize;
-    if pos + s > data.len() {
-        return false;
-    }
-    data[pos..pos + s].iter().all(|&b| b == 0xFF)
 }
 
 fn read_variable_length(data: &[u8], size: usize) -> Result<u64, FormatError> {
@@ -164,7 +147,7 @@ fn read_element(
                 available: data.len(),
             });
         }
-        if is_undefined(data, pos, offset_size) {
+        if is_undefined_bytes(data, pos, offset_size) {
             return Ok((None, os));
         }
         let address = read_offset(data, pos, offset_size)?;
@@ -188,7 +171,7 @@ fn read_element(
                 available: data.len(),
             });
         }
-        if is_undefined(data, pos, offset_size) {
+        if is_undefined_bytes(data, pos, offset_size) {
             return Ok((None, elem_total));
         }
         let address = read_offset(data, pos, offset_size)?;
@@ -472,7 +455,7 @@ pub fn read_extensible_array_chunks(
             break;
         }
         let nelmts = dblk_sizes[i];
-        if is_undefined_addr(addr, offset_size) {
+        if is_undefined_offset(addr, offset_size) {
             global_index += nelmts;
             continue;
         }
@@ -534,7 +517,7 @@ pub fn read_extensible_array_chunks(
     // Process each super block
     for (sb_idx, &sb_addr) in sb_addrs.iter().enumerate() {
         let (ndblks, nelmts_per_dblk) = sb_infos[sb_idx];
-        if is_undefined_addr(sb_addr, offset_size) {
+        if is_undefined_offset(sb_addr, offset_size) {
             global_index += ndblks * nelmts_per_dblk;
             continue;
         }
@@ -608,7 +591,7 @@ fn read_super_block(
     let mut global_idx = start_index;
 
     for &addr in &dblk_addrs {
-        if is_undefined_addr(addr, offset_size) {
+        if is_undefined_offset(addr, offset_size) {
             global_idx += nelmts_per_dblk;
             continue;
         }

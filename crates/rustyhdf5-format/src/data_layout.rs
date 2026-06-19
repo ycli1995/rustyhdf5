@@ -4,7 +4,7 @@
 use alloc::vec::Vec;
 
 use crate::error::FormatError;
-use crate::utils::{read_offset, ensure_len};
+use crate::utils::{read_offset, ensure_len, is_undefined_bytes};
 
 /// Parsed HDF5 data layout message.
 #[derive(Debug, Clone, PartialEq)]
@@ -47,15 +47,6 @@ fn read_length(data: &[u8], pos: usize, size: u8) -> Result<u64, FormatError> {
     read_offset(data, pos, size)
 }
 
-/// Check if all bytes in a slice are 0xFF (undefined address).
-fn is_undefined(data: &[u8], pos: usize, size: u8) -> bool {
-    let s = size as usize;
-    if pos + s > data.len() {
-        return false;
-    }
-    data[pos..pos + s].iter().all(|&b| b == 0xFF)
-}
-
 impl DataLayout {
     /// Parse a data layout message from raw message bytes.
     ///
@@ -93,7 +84,7 @@ impl DataLayout {
                 let os = offset_size as usize;
                 let ls = length_size as usize;
                 ensure_len(data, pos, os + ls)?;
-                let address = if is_undefined(data, pos, offset_size) {
+                let address = if is_undefined_bytes(data, pos, offset_size) {
                     None
                 } else {
                     Some(read_offset(data, pos, offset_size)?)
@@ -109,7 +100,7 @@ impl DataLayout {
                 // btree address first
                 let os = offset_size as usize;
                 ensure_len(data, p, os)?;
-                let btree_address = if is_undefined(data, p, offset_size) {
+                let btree_address = if is_undefined_bytes(data, p, offset_size) {
                     None
                 } else {
                     Some(read_offset(data, p, offset_size)?)
@@ -157,7 +148,7 @@ impl DataLayout {
                 let os = offset_size as usize;
                 let ls = length_size as usize;
                 ensure_len(data, pos, os + ls)?;
-                let address = if is_undefined(data, pos, offset_size) {
+                let address = if is_undefined_bytes(data, pos, offset_size) {
                     None
                 } else {
                     Some(read_offset(data, pos, offset_size)?)
@@ -230,7 +221,7 @@ impl DataLayout {
                                 data[p], data[p + 1], data[p + 2], data[p + 3],
                             ]));
                             p += 4;
-                            if is_undefined(data, p, offset_size) {
+                            if is_undefined_bytes(data, p, offset_size) {
                                 None
                             } else {
                                 Some(read_offset(data, p, offset_size)?)
@@ -238,7 +229,7 @@ impl DataLayout {
                         } else {
                             // just address(offset_size)
                             ensure_len(data, p, offset_size as usize)?;
-                            if is_undefined(data, p, offset_size) {
+                            if is_undefined_bytes(data, p, offset_size) {
                                 None
                             } else {
                                 Some(read_offset(data, p, offset_size)?)
@@ -248,7 +239,7 @@ impl DataLayout {
                     2 => {
                         // Implicit: just address
                         ensure_len(data, p, offset_size as usize)?;
-                        if is_undefined(data, p, offset_size) {
+                        if is_undefined_bytes(data, p, offset_size) {
                             None
                         } else {
                             Some(read_offset(data, p, offset_size)?)
@@ -258,7 +249,7 @@ impl DataLayout {
                         // Fixed Array: max_dblk_page_nelmts_bits(1) + address(offset_size)
                         ensure_len(data, p, 1 + offset_size as usize)?;
                         p += 1; // skip max_dblk_page_nelmts_bits
-                        if is_undefined(data, p, offset_size) {
+                        if is_undefined_bytes(data, p, offset_size) {
                             None
                         } else {
                             Some(read_offset(data, p, offset_size)?)
@@ -268,7 +259,7 @@ impl DataLayout {
                         // Extensible Array: 5 creation params + address(offset_size)
                         ensure_len(data, p, 5 + offset_size as usize)?;
                         p += 5; // skip EA creation parameters
-                        if is_undefined(data, p, offset_size) {
+                        if is_undefined_bytes(data, p, offset_size) {
                             None
                         } else {
                             Some(read_offset(data, p, offset_size)?)
@@ -278,7 +269,7 @@ impl DataLayout {
                         // B-tree v2: node_size(4) + split_percent(1) + merge_percent(1) + address
                         ensure_len(data, p, 6 + offset_size as usize)?;
                         p += 6;
-                        if is_undefined(data, p, offset_size) {
+                        if is_undefined_bytes(data, p, offset_size) {
                             None
                         } else {
                             Some(read_offset(data, p, offset_size)?)
@@ -287,7 +278,7 @@ impl DataLayout {
                     _ => {
                         // Unknown index type: try just address
                         ensure_len(data, p, offset_size as usize)?;
-                        if is_undefined(data, p, offset_size) {
+                        if is_undefined_bytes(data, p, offset_size) {
                             None
                         } else {
                             Some(read_offset(data, p, offset_size)?)

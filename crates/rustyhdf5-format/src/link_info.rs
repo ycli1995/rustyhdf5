@@ -1,7 +1,7 @@
 //! HDF5 Link Info message parsing (message type 0x0002).
 
 use crate::error::FormatError;
-use crate::utils::{read_offset, ensure_len};
+use crate::utils::{read_offset, ensure_len, is_undefined_offset};
 
 /// Parsed Link Info message from a v2 group object header.
 #[derive(Debug, Clone, PartialEq)]
@@ -14,15 +14,6 @@ pub struct LinkInfoMessage {
     pub btree_name_index_address: Option<u64>,
     /// Address of B-tree v2 for creation-order link index.
     pub btree_creation_order_address: Option<u64>,
-}
-
-fn is_undefined(val: u64, offset_size: u8) -> bool {
-    match offset_size {
-        2 => val == 0xFFFF,
-        4 => val == 0xFFFF_FFFF,
-        8 => val == 0xFFFF_FFFF_FFFF_FFFF,
-        _ => false,
-    }
 }
 
 impl LinkInfoMessage {
@@ -61,7 +52,7 @@ impl LinkInfoMessage {
 
         let fh_addr = read_offset(data, pos, offset_size)?;
         pos += offset_size as usize;
-        let fractal_heap_address = if is_undefined(fh_addr, offset_size) {
+        let fractal_heap_address = if is_undefined_offset(fh_addr, offset_size) {
             None
         } else {
             Some(fh_addr)
@@ -69,7 +60,7 @@ impl LinkInfoMessage {
 
         let btree_addr = read_offset(data, pos, offset_size)?;
         pos += offset_size as usize;
-        let btree_name_index_address = if is_undefined(btree_addr, offset_size) {
+        let btree_name_index_address = if is_undefined_offset(btree_addr, offset_size) {
             None
         } else {
             Some(btree_addr)
@@ -77,7 +68,7 @@ impl LinkInfoMessage {
 
         let btree_creation_order_address = if has_creation_order_index {
             let addr = read_offset(data, pos, offset_size)?;
-            if is_undefined(addr, offset_size) {
+            if is_undefined_offset(addr, offset_size) {
                 None
             } else {
                 Some(addr)

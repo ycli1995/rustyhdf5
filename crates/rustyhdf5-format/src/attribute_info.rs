@@ -4,28 +4,19 @@
 //! and B-tree v2 indexes for attribute lookup by name or creation order.
 
 use crate::error::FormatError;
-use crate::utils::{read_offset, ensure_len};
+use crate::utils::{read_offset, ensure_len, is_undefined_offset};
 
 /// Parsed Attribute Info message from an object header.
 #[derive(Debug, Clone, PartialEq)]
 pub struct AttributeInfoMessage {
-    /// Maximum creation order index (if creation-order tracking is enabled).
+    /// Maximum creation order value, if tracking is enabled.
     pub max_creation_index: Option<u16>,
-    /// Address of the fractal heap storing attribute messages.
+    /// Address of fractal heap for dense attribute storage.
     pub fractal_heap_address: Option<u64>,
-    /// Address of B-tree v2 (type 8) for name-ordered attribute index.
+    /// Address of B-tree v2 for name-ordered attribute index.
     pub btree_name_index_address: Option<u64>,
-    /// Address of B-tree v2 (type 9) for creation-order attribute index.
+    /// Address of B-tree v2 for creation-order attribute index.
     pub btree_creation_order_address: Option<u64>,
-}
-
-fn is_undefined(val: u64, offset_size: u8) -> bool {
-    match offset_size {
-        2 => val == 0xFFFF,
-        4 => val == 0xFFFF_FFFF,
-        8 => val == 0xFFFF_FFFF_FFFF_FFFF,
-        _ => false,
-    }
 }
 
 impl AttributeInfoMessage {
@@ -59,7 +50,7 @@ impl AttributeInfoMessage {
 
         let fh_addr = read_offset(data, pos, offset_size)?;
         pos += offset_size as usize;
-        let fractal_heap_address = if is_undefined(fh_addr, offset_size) {
+        let fractal_heap_address = if is_undefined_offset(fh_addr, offset_size) {
             None
         } else {
             Some(fh_addr)
@@ -67,7 +58,7 @@ impl AttributeInfoMessage {
 
         let btree_addr = read_offset(data, pos, offset_size)?;
         pos += offset_size as usize;
-        let btree_name_index_address = if is_undefined(btree_addr, offset_size) {
+        let btree_name_index_address = if is_undefined_offset(btree_addr, offset_size) {
             None
         } else {
             Some(btree_addr)
@@ -75,7 +66,7 @@ impl AttributeInfoMessage {
 
         let btree_creation_order_address = if has_creation_order_index {
             let addr = read_offset(data, pos, offset_size)?;
-            if is_undefined(addr, offset_size) {
+            if is_undefined_offset(addr, offset_size) {
                 None
             } else {
                 Some(addr)

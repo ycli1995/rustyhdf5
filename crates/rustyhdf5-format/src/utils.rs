@@ -28,3 +28,24 @@ pub fn read_offset(data: &[u8], pos: usize, size: u8) -> Result<u64, FormatError
         _ => return Err(FormatError::InvalidOffsetSize(size)),
     })
 }
+
+/// Check if a 64-bit address value is the "undefined address" for a given offset size.
+/// Undefined addresses are all-ones values: 0xFFFF (2-byte), 0xFFFF_FFFF (4-byte),
+/// 0xFFFF_FFFF_FFFF_FFFF (8-byte).
+pub fn is_undefined_offset(val: u64, offset_size: u8) -> bool {
+    match offset_size {
+        2 => val == 0xFFFF,
+        4 => val == 0xFFFF_FFFF,
+        8 => val == 0xFFFF_FFFF_FFFF_FFFF,
+        _ => false,
+    }
+}
+
+/// Check if `size` bytes starting at `pos` in `data` are all 0xFF (undefined address).
+pub fn is_undefined_bytes(data: &[u8], pos: usize, size: u8) -> bool {
+    let s = size as usize;
+    if pos + s > data.len() {
+        return false;
+    }
+    data[pos..pos + s].iter().all(|&b| b == 0xFF)
+}

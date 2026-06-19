@@ -21,7 +21,7 @@ use alloc::vec::Vec;
 
 use crate::btree_v2::{BTreeV2Header, collect_btree_v2_records};
 use crate::error::FormatError;
-use crate::utils::{read_offset, ensure_len};
+use crate::utils::{read_offset, ensure_len, is_undefined_offset};
 use crate::fractal_heap::FractalHeapHeader;
 use crate::message_type::MessageType;
 use crate::object_header::ObjectHeader;
@@ -103,7 +103,7 @@ pub fn is_shared(msg_flags: u8) -> bool {
     msg_flags & 0x02 != 0
 }
 
-/// Parse a shared message reference from the message data.
+/// Resolve a type 2 (SOHM) shared message reference.
 ///
 /// When the shared flag is set on a message, the data contains a reference
 /// instead of the actual message content.
@@ -348,16 +348,7 @@ fn find_index_for_msg_type(table: &SohmTable, msg_type: MessageType) -> Option<&
     table.indexes.iter().find(|idx| idx.mesg_types & type_bit != 0)
 }
 
-fn is_undefined(val: u64, offset_size: u8) -> bool {
-    match offset_size {
-        2 => val == 0xFFFF,
-        4 => val == 0xFFFF_FFFF,
-        8 => val == 0xFFFF_FFFF_FFFF_FFFF,
-        _ => false,
-    }
-}
-
-/// Resolve a type 2 (SOHM) shared message reference.
+/// Parse a shared message reference.
 ///
 /// Uses the heap ID from the shared ref to read the message data from
 /// the fractal heap associated with the matching SOHM index.
@@ -373,7 +364,7 @@ pub fn resolve_sohm_message(
         FormatError::InvalidSharedMessageVersion(2),
     )?;
 
-    if is_undefined(index.heap_addr, offset_size) {
+    if is_undefined_offset(index.heap_addr, offset_size) {
         return Err(FormatError::InvalidSharedMessageVersion(2));
     }
 

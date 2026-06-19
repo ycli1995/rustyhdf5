@@ -7,7 +7,7 @@ use alloc::vec::Vec;
 use byteorder::{ByteOrder, LittleEndian};
 
 use crate::error::FormatError;
-use crate::utils::{read_offset, ensure_len};
+use crate::utils::{read_offset, ensure_len, is_undefined_offset};
 
 /// Parsed fractal heap header (signature "FRHP").
 #[derive(Debug, Clone)]
@@ -34,15 +34,6 @@ pub struct FractalHeapHeader {
     pub current_rows_in_root_indirect_block: u16,
     /// Total number of managed objects.
     pub managed_objects_count: u64,
-}
-
-fn is_undefined(val: u64, offset_size: u8) -> bool {
-    match offset_size {
-        2 => val == 0xFFFF,
-        4 => val == 0xFFFF_FFFF,
-        8 => val == 0xFFFF_FFFF_FFFF_FFFF,
-        _ => false,
-    }
 }
 
 impl FractalHeapHeader {
@@ -241,7 +232,7 @@ impl FractalHeapHeader {
     ) -> Result<Vec<u8>, FormatError> {
         let (heap_offset, obj_len) = self.decode_managed_id(id_bytes)?;
 
-        if is_undefined(self.root_block_address, offset_size) {
+        if is_undefined_offset(self.root_block_address, offset_size) {
             return Err(FormatError::UnexpectedEof {
                 expected: 1,
                 available: 0,
@@ -350,7 +341,7 @@ impl FractalHeapHeader {
                     pos += 4; // filter_mask - simplified
                 }
 
-                if !is_undefined(child_addr, offset_size) {
+                if !is_undefined_offset(child_addr, offset_size) {
                     let block_end = current_heap_offset + block_size;
                     if target_offset >= current_heap_offset && target_offset < block_end {
                         return self.read_from_direct_block(
@@ -377,7 +368,7 @@ impl FractalHeapHeader {
                 let child_addr = read_offset(file_data, pos, offset_size)?;
                 pos += offset_size as usize;
 
-                if !is_undefined(child_addr, offset_size) {
+                if !is_undefined_offset(child_addr, offset_size) {
                     // Calculate total heap space covered by this indirect block child
                     let total_child_space = self.indirect_block_heap_size(child_nrows);
                     let block_end = current_heap_offset + total_child_space;
