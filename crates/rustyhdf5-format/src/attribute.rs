@@ -10,6 +10,7 @@ use crate::dataspace::Dataspace;
 use crate::datatype::Datatype;
 use crate::error::FormatError;
 use crate::utils::ensure_len;
+use crate::utils::pad8;
 use crate::fractal_heap::FractalHeapHeader;
 use crate::message_type::MessageType;
 use crate::object_header::ObjectHeader;
@@ -27,11 +28,6 @@ pub struct AttributeMessage {
     pub dataspace: Dataspace,
     /// Raw attribute value data.
     pub raw_data: Vec<u8>,
-}
-
-/// Round up to the next multiple of 8.
-fn pad8(x: usize) -> usize {
-    (x + 7) & !7
 }
 
 impl AttributeMessage {

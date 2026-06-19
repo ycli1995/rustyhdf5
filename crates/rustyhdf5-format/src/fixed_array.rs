@@ -8,7 +8,7 @@ use alloc::{format, vec, vec::Vec};
 
 use crate::chunked_read::ChunkInfo;
 use crate::error::FormatError;
-use crate::utils::{read_offset, is_undefined_bytes};
+use crate::utils::{read_offset, is_undefined_bytes, read_variable_length};
 
 /// Parsed Fixed Array header (FAHD).
 #[derive(Debug, Clone)]
@@ -232,19 +232,6 @@ fn index_to_chunk_offsets(
 }
 
 /// Read a variable-length little-endian unsigned integer.
-fn read_variable_length(data: &[u8], size: usize) -> Result<u64, FormatError> {
-    if size > 8 || data.len() < size {
-        return Err(FormatError::ChunkedReadError(
-            "invalid variable-length size".into(),
-        ));
-    }
-    let mut val = 0u64;
-    for (i, &byte) in data.iter().enumerate().take(size) {
-        val |= (byte as u64) << (i * 8);
-    }
-    Ok(val)
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;

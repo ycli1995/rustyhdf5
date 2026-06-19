@@ -49,3 +49,23 @@ pub fn is_undefined_bytes(data: &[u8], pos: usize, size: u8) -> bool {
     }
     data[pos..pos + s].iter().all(|&b| b == 0xFF)
 }
+
+/// Read a variable-length little-endian unsigned integer from `data`.
+/// `size` is the number of bytes to read (must be ≤ 8).
+pub fn read_variable_length(data: &[u8], size: usize) -> Result<u64, FormatError> {
+    if size > 8 || data.len() < size {
+        return Err(FormatError::ChunkedReadError(
+            "invalid variable-length size".into(),
+        ));
+    }
+    let mut val = 0u64;
+    for (i, &byte) in data.iter().enumerate().take(size) {
+        val |= (byte as u64) << (i * 8);
+    }
+    Ok(val)
+}
+
+/// Round up to the next multiple of 8.
+pub fn pad8(x: usize) -> usize {
+    (x + 7) & !7
+}

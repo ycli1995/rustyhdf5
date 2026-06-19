@@ -5,6 +5,7 @@ use alloc::vec::Vec;
 
 use crate::error::FormatError;
 use crate::utils::ensure_len;
+use crate::utils::pad8;
 
 /// Magic signature for global heap collections.
 const GCOL_SIGNATURE: [u8; 4] = [b'G', b'C', b'O', b'L'];
@@ -41,11 +42,6 @@ fn read_length(data: &[u8], offset: usize, length_size: u8) -> Result<u64, Forma
         ]),
         _ => return Err(FormatError::InvalidLengthSize(length_size)),
     })
-}
-
-/// Round up to next multiple of 8.
-fn pad8(x: usize) -> usize {
-    (x + 7) & !7
 }
 
 impl GlobalHeapCollection {
