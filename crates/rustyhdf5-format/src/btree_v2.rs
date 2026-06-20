@@ -62,7 +62,7 @@ impl BTreeV2Header {
         offset: usize,
         offset_size: u8,
         length_size: u8,
-    ) -> Result<BTreeV2Header, FormatError> {
+    ) -> Result<Self, FormatError> {
         ensure_len(file_data, offset, 4)?;
         if &file_data[offset..offset + 4] != b"BTHD" {
             return Err(FormatError::InvalidBTreeV2Signature);
@@ -115,7 +115,7 @@ impl BTreeV2Header {
             }
         }
 
-        Ok(BTreeV2Header {
+        Ok(Self {
             tree_type,
             node_size,
             record_size,

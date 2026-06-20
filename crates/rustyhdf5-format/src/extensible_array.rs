@@ -90,7 +90,7 @@ impl ExtensibleArrayHeader {
         pos += ls; // skip max_idx_set (6th stats field)
         let index_block_address = read_offset(d, pos, offset_size)?;
 
-        Ok(ExtensibleArrayHeader {
+        Ok(Self {
             client_id,
             element_size,
             max_nelmts_bits,

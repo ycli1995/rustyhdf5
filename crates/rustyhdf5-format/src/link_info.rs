@@ -18,7 +18,7 @@ pub struct LinkInfoMessage {
 
 impl LinkInfoMessage {
     /// Parse a Link Info message from raw message data.
-    pub fn parse(data: &[u8], offset_size: u8) -> Result<LinkInfoMessage, FormatError> {
+    pub fn parse(data: &[u8], offset_size: u8) -> Result<Self, FormatError> {
         ensure_len(data, 0, 2)?;
 
         let version = data[0];
@@ -77,7 +77,7 @@ impl LinkInfoMessage {
             None
         };
 
-        Ok(LinkInfoMessage {
+        Ok(Self {
             max_creation_order,
             fractal_heap_address,
             btree_name_index_address,

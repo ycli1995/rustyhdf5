@@ -51,7 +51,7 @@ impl DataLayout {
     /// Parse a data layout message from raw message bytes.
     ///
     /// `offset_size` and `length_size` come from the superblock.
-    pub fn parse(data: &[u8], offset_size: u8, length_size: u8) -> Result<DataLayout, FormatError> {
+    pub fn parse(data: &[u8], offset_size: u8, length_size: u8) -> Result<Self, FormatError> {
         ensure_len(data, 0, 2)?;
         let version = data[0];
         let layout_class = data[1];
@@ -68,7 +68,7 @@ impl DataLayout {
         layout_class: u8,
         offset_size: u8,
         length_size: u8,
-    ) -> Result<DataLayout, FormatError> {
+    ) -> Result<Self, FormatError> {
         let pos = 2;
         match layout_class {
             0 => {
@@ -77,7 +77,7 @@ impl DataLayout {
                 let data_size = u16::from_le_bytes([data[pos], data[pos + 1]]) as usize;
                 ensure_len(data, pos + 2, data_size)?;
                 let raw = data[pos + 2..pos + 2 + data_size].to_vec();
-                Ok(DataLayout::Compact { data: raw })
+                Ok(Self::Compact { data: raw })
             }
             1 => {
                 // Contiguous
@@ -90,7 +90,7 @@ impl DataLayout {
                     Some(read_offset(data, pos, offset_size)?)
                 };
                 let size = read_length(data, pos + os, length_size)?;
-                Ok(DataLayout::Contiguous { address, size })
+                Ok(Self::Contiguous { address, size })
             }
             2 => {
                 // Chunked
@@ -114,7 +114,7 @@ impl DataLayout {
                     chunk_dimensions.push(dim);
                     p += 4;
                 }
-                Ok(DataLayout::Chunked {
+                Ok(Self::Chunked {
                     chunk_dimensions,
                     btree_address,
                     version: 3,
@@ -132,7 +132,7 @@ impl DataLayout {
         layout_class: u8,
         offset_size: u8,
         length_size: u8,
-    ) -> Result<DataLayout, FormatError> {
+    ) -> Result<Self, FormatError> {
         let pos = 2;
         match layout_class {
             0 => {
@@ -141,7 +141,7 @@ impl DataLayout {
                 let data_size = u16::from_le_bytes([data[pos], data[pos + 1]]) as usize;
                 ensure_len(data, pos + 2, data_size)?;
                 let raw = data[pos + 2..pos + 2 + data_size].to_vec();
-                Ok(DataLayout::Compact { data: raw })
+                Ok(Self::Compact { data: raw })
             }
             1 => {
                 // Contiguous — same as v3
@@ -154,7 +154,7 @@ impl DataLayout {
                     Some(read_offset(data, pos, offset_size)?)
                 };
                 let size = read_length(data, pos + os, length_size)?;
-                Ok(DataLayout::Contiguous { address, size })
+                Ok(Self::Contiguous { address, size })
             }
             2 => {
                 // Chunked v4
@@ -286,7 +286,7 @@ impl DataLayout {
                     }
                 };
 
-                Ok(DataLayout::Chunked {
+                Ok(Self::Chunked {
                     chunk_dimensions,
                     btree_address,
                     version: 4,
@@ -297,7 +297,7 @@ impl DataLayout {
             }
             3 => {
                 // Virtual
-                Ok(DataLayout::Virtual { version: 4 })
+                Ok(Self::Virtual { version: 4 })
             }
             _ => Err(FormatError::InvalidLayoutClass(layout_class)),
         }

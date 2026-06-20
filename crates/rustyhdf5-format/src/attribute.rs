@@ -34,7 +34,7 @@ impl AttributeMessage {
     /// Parse an attribute message from raw message bytes.
     ///
     /// `length_size` is needed for dataspace dimension parsing.
-    pub fn parse(data: &[u8], length_size: u8) -> Result<AttributeMessage, FormatError> {
+    pub fn parse(data: &[u8], length_size: u8) -> Result<Self, FormatError> {
         ensure_len(data, 0, 2)?;
         let version = data[0];
 
@@ -46,7 +46,7 @@ impl AttributeMessage {
         }
     }
 
-    fn parse_v1(data: &[u8], length_size: u8) -> Result<AttributeMessage, FormatError> {
+    fn parse_v1(data: &[u8], length_size: u8) -> Result<Self, FormatError> {
         // version(1) + reserved(1) + name_size(2) + datatype_size(2) + dataspace_size(2) = 8
         ensure_len(data, 0, 8)?;
         let name_size = u16::from_le_bytes([data[2], data[3]]) as usize;
@@ -73,7 +73,7 @@ impl AttributeMessage {
         // Raw data: num_elements × type_size bytes
         let raw_data = compute_raw_data(data, pos, &dataspace, &datatype);
 
-        Ok(AttributeMessage {
+        Ok(Self {
             name,
             datatype,
             dataspace,
@@ -81,7 +81,7 @@ impl AttributeMessage {
         })
     }
 
-    fn parse_v2(data: &[u8], length_size: u8) -> Result<AttributeMessage, FormatError> {
+    fn parse_v2(data: &[u8], length_size: u8) -> Result<Self, FormatError> {
         // version(1) + flags(1) + name_size(2) + datatype_size(2) + dataspace_size(2) = 8
         ensure_len(data, 0, 8)?;
         let name_size = u16::from_le_bytes([data[2], data[3]]) as usize;
@@ -107,7 +107,7 @@ impl AttributeMessage {
 
         let raw_data = compute_raw_data(data, pos, &dataspace, &datatype);
 
-        Ok(AttributeMessage {
+        Ok(Self {
             name,
             datatype,
             dataspace,
@@ -115,7 +115,7 @@ impl AttributeMessage {
         })
     }
 
-    fn parse_v3(data: &[u8], length_size: u8) -> Result<AttributeMessage, FormatError> {
+    fn parse_v3(data: &[u8], length_size: u8) -> Result<Self, FormatError> {
         // version(1) + flags(1) + name_size(2) + datatype_size(2) + dataspace_size(2) + encoding(1) = 9
         ensure_len(data, 0, 9)?;
         let name_size = u16::from_le_bytes([data[2], data[3]]) as usize;
@@ -142,7 +142,7 @@ impl AttributeMessage {
 
         let raw_data = compute_raw_data(data, pos, &dataspace, &datatype);
 
-        Ok(AttributeMessage {
+        Ok(Self {
             name,
             datatype,
             dataspace,
@@ -392,7 +392,6 @@ fn extract_dense_attributes(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::datatype::{CharacterSet, DatatypeByteOrder, StringPadding};
 
     /// Build a datatype header for testing (8 bytes).
     fn build_dt_header(class: u8, version: u8, bf: [u8; 3], size: u32) -> Vec<u8> {

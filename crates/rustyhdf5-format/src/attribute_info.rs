@@ -25,7 +25,7 @@ impl AttributeInfoMessage {
     /// Layout: version(1) + flags(1) + [max_creation_index(2)] +
     ///         fractal_heap_address(os) + btree_name_index(os) +
     ///         [btree_creation_order(os)]
-    pub fn parse(data: &[u8], offset_size: u8) -> Result<AttributeInfoMessage, FormatError> {
+    pub fn parse(data: &[u8], offset_size: u8) -> Result<Self, FormatError> {
         ensure_len(data, 0, 2)?;
 
         let version = data[0];
@@ -75,7 +75,7 @@ impl AttributeInfoMessage {
             None
         };
 
-        Ok(AttributeInfoMessage {
+        Ok(Self {
             max_creation_index,
             fractal_heap_address,
             btree_name_index_address,

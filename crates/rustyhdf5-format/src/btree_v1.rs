@@ -34,7 +34,7 @@ impl BTreeV1Node {
         offset: usize,
         offset_size: u8,
         _length_size: u8,
-    ) -> Result<BTreeV1Node, FormatError> {
+    ) -> Result<Self, FormatError> {
         // signature(4) + node_type(1) + node_level(1) + entries_used(2) = 8
         // + left_sibling(offset_size) + right_sibling(offset_size)
         let os = offset_size as usize;

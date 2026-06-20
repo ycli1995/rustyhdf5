@@ -50,7 +50,7 @@ impl GlobalHeapCollection {
         file_data: &[u8],
         offset: usize,
         length_size: u8,
-    ) -> Result<GlobalHeapCollection, FormatError> {
+    ) -> Result<Self, FormatError> {
         // signature(4) + version(1) + reserved(3) + collection_size(length_size)
         let header_size = 8 + length_size as usize;
         ensure_len(file_data, offset, header_size)?;
@@ -102,7 +102,7 @@ impl GlobalHeapCollection {
             pos += pad8(object_size);
         }
 
-        Ok(GlobalHeapCollection {
+        Ok(Self {
             collection_size,
             objects,
         })

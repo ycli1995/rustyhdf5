@@ -43,7 +43,7 @@ impl FractalHeapHeader {
         offset: usize,
         offset_size: u8,
         length_size: u8,
-    ) -> Result<FractalHeapHeader, FormatError> {
+    ) -> Result<Self, FormatError> {
         ensure_len(file_data, offset, 5)?;
         if &file_data[offset..offset + 4] != b"FRHP" {
             return Err(FormatError::InvalidFractalHeapSignature);

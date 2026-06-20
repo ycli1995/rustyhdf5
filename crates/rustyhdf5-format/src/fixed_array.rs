@@ -70,7 +70,7 @@ impl FixedArrayHeader {
         pos += length_size as usize;
         let data_block_address = read_offset(d, pos, offset_size)?;
 
-        Ok(FixedArrayHeader {
+        Ok(Self {
             client_id,
             element_size,
             max_nelmts_bits,

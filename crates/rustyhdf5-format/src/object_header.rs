@@ -60,7 +60,7 @@ impl ObjectHeader {
         offset: usize,
         offset_size: u8,
         length_size: u8,
-    ) -> Result<ObjectHeader, FormatError> {
+    ) -> Result<Self, FormatError> {
         ensure_len(data, offset, 4)?;
         if data[offset..offset + 4] == OHDR_SIGNATURE {
             Self::parse_v2(data, offset, offset_size, length_size)
@@ -74,7 +74,7 @@ impl ObjectHeader {
         offset: usize,
         offset_size: u8,
         length_size: u8,
-    ) -> Result<ObjectHeader, FormatError> {
+    ) -> Result<Self, FormatError> {
         // version(1) + reserved(1) + num_messages(2) + ref_count(4) + header_size(4) = 12
         // then pad to 8-byte alignment from start of header
         ensure_len(data, offset, 12)?;
@@ -160,7 +160,7 @@ impl ObjectHeader {
             }
         }
 
-        Ok(ObjectHeader {
+        Ok(Self {
             version: 1,
             messages,
             reference_count: Some(reference_count),
@@ -245,7 +245,7 @@ impl ObjectHeader {
         offset: usize,
         offset_size: u8,
         length_size: u8,
-    ) -> Result<ObjectHeader, FormatError> {
+    ) -> Result<Self, FormatError> {
         // signature(4) + version(1) + flags(1) = 6
         ensure_len(data, offset, 6)?;
 
@@ -345,7 +345,7 @@ impl ObjectHeader {
             )?;
         }
 
-        Ok(ObjectHeader {
+        Ok(Self {
             version: 2,
             messages,
             reference_count: None,

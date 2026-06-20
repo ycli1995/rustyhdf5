@@ -101,7 +101,7 @@ impl Superblock {
     /// Parse a superblock from `data` starting at `signature_offset`.
     ///
     /// The signature must be present at the given offset.
-    pub fn parse(data: &[u8], signature_offset: usize) -> Result<Superblock, FormatError> {
+    pub fn parse(data: &[u8], signature_offset: usize) -> Result<Self, FormatError> {
         let d = &data[signature_offset..];
         ensure_len(d, 9)?; // signature(8) + version(1)
 
@@ -119,7 +119,7 @@ impl Superblock {
         }
     }
 
-    fn parse_v0(d: &[u8]) -> Result<Superblock, FormatError> {
+    fn parse_v0(d: &[u8]) -> Result<Self, FormatError> {
         // sig(8) + version(1) + free_space_ver(1) + root_grp_ver(1) + reserved(1)
         // + shared_hdr_ver(1) + offset_size(1) + length_size(1) + reserved(1)
         // + group_leaf_k(2) + group_internal_k(2) + consistency_flags(4)
@@ -156,7 +156,7 @@ impl Superblock {
         pos += os;
         let object_header_addr = read_offset(d, pos, offset_size)?;
 
-        Ok(Superblock {
+        Ok(Self {
             version: 0,
             offset_size,
             length_size,
@@ -174,7 +174,7 @@ impl Superblock {
         })
     }
 
-    fn parse_v1(d: &[u8]) -> Result<Superblock, FormatError> {
+    fn parse_v1(d: &[u8]) -> Result<Self, FormatError> {
         // Same as v0 but adds indexed_storage_internal_node_k(2) + reserved(2) after group_internal_k
         // sig(8) + version(1) + free_space_ver(1) + root_grp_ver(1) + reserved(1)
         // + shared_hdr_ver(1) + offset_size(1) + length_size(1) + reserved(1)
@@ -213,7 +213,7 @@ impl Superblock {
         pos += os;
         let object_header_addr = read_offset(d, pos, offset_size)?;
 
-        Ok(Superblock {
+        Ok(Self {
             version: 1,
             offset_size,
             length_size,
@@ -231,7 +231,7 @@ impl Superblock {
         })
     }
 
-    fn parse_v2v3(d: &[u8], version: u8) -> Result<Superblock, FormatError> {
+    fn parse_v2v3(d: &[u8], version: u8) -> Result<Self, FormatError> {
         // sig(8) + version(1) + offset_size(1) + length_size(1) + consistency_flags(1) = 12
         ensure_len(d, 12)?;
 
@@ -269,7 +269,7 @@ impl Superblock {
             }
         }
 
-        Ok(Superblock {
+        Ok(Self {
             version,
             offset_size,
             length_size,

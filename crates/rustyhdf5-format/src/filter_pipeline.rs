@@ -41,7 +41,7 @@ pub struct FilterPipeline {
 
 impl FilterPipeline {
     /// Parse a filter pipeline message from raw message bytes.
-    pub fn parse(data: &[u8]) -> Result<FilterPipeline, FormatError> {
+    pub fn parse(data: &[u8]) -> Result<Self, FormatError> {
         ensure_len(data, 0, 2)?;
         let version = data[0];
         let number_of_filters = data[1] as usize;
@@ -53,7 +53,7 @@ impl FilterPipeline {
         }
     }
 
-    fn parse_v1(data: &[u8], number_of_filters: usize) -> Result<FilterPipeline, FormatError> {
+    fn parse_v1(data: &[u8], number_of_filters: usize) -> Result<Self, FormatError> {
         // version(1) + nfilters(1) + reserved(6) = 8 bytes header
         ensure_len(data, 0, 8)?;
         let mut pos = 8;
@@ -107,10 +107,10 @@ impl FilterPipeline {
             });
         }
 
-        Ok(FilterPipeline { version: 1, filters })
+        Ok(Self { version: 1, filters })
     }
 
-    fn parse_v2(data: &[u8], number_of_filters: usize) -> Result<FilterPipeline, FormatError> {
+    fn parse_v2(data: &[u8], number_of_filters: usize) -> Result<Self, FormatError> {
         // version(1) + nfilters(1) = 2 bytes header (no reserved in v2)
         let mut pos = 2;
         let mut filters = Vec::with_capacity(number_of_filters);
@@ -166,7 +166,7 @@ impl FilterPipeline {
             });
         }
 
-        Ok(FilterPipeline { version: 2, filters })
+        Ok(Self { version: 2, filters })
     }
 
     /// Serialize the filter pipeline to bytes.

@@ -17,7 +17,7 @@ pub struct SymbolTableMessage {
 
 impl SymbolTableMessage {
     /// Parse a Symbol Table message from raw message data bytes.
-    pub fn parse(data: &[u8], offset_size: u8) -> Result<SymbolTableMessage, FormatError> {
+    pub fn parse(data: &[u8], offset_size: u8) -> Result<Self, FormatError> {
         let os = offset_size as usize;
         if data.len() < os * 2 {
             return Err(FormatError::UnexpectedEof {
@@ -27,7 +27,7 @@ impl SymbolTableMessage {
         }
         let btree_address = read_offset(data, 0, offset_size)?;
         let local_heap_address = read_offset(data, os, offset_size)?;
-        Ok(SymbolTableMessage {
+        Ok(Self {
             btree_address,
             local_heap_address,
         })
@@ -60,7 +60,7 @@ impl SymbolTableNode {
         file_data: &[u8],
         offset: usize,
         offset_size: u8,
-    ) -> Result<SymbolTableNode, FormatError> {
+    ) -> Result<Self, FormatError> {
         // signature(4) + version(1) + reserved(1) + number_of_symbols(2) = 8
         if offset + 8 > file_data.len() {
             return Err(FormatError::UnexpectedEof {

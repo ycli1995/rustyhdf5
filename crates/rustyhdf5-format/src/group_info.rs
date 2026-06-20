@@ -17,7 +17,7 @@ pub struct GroupInfoMessage {
 
 impl GroupInfoMessage {
     /// Parse a Group Info message from raw message data.
-    pub fn parse(data: &[u8]) -> Result<GroupInfoMessage, FormatError> {
+    pub fn parse(data: &[u8]) -> Result<Self, FormatError> {
         if data.len() < 2 {
             return Err(FormatError::UnexpectedEof {
                 expected: 2,
@@ -65,7 +65,7 @@ impl GroupInfoMessage {
             (None, None)
         };
 
-        Ok(GroupInfoMessage {
+        Ok(Self {
             max_compact,
             min_dense,
             estimated_num_entries,

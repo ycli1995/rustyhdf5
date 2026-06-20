@@ -50,7 +50,7 @@ impl Dataspace {
     /// Parse a dataspace message from raw message bytes.
     ///
     /// `length_size` is needed for dimension value width (from superblock).
-    pub fn parse(data: &[u8], length_size: u8) -> Result<Dataspace, FormatError> {
+    pub fn parse(data: &[u8], length_size: u8) -> Result<Self, FormatError> {
         ensure_len(data, 0, 4)?;
 
         let version = data[0];
@@ -113,7 +113,7 @@ impl Dataspace {
             // pos += _skip; // not needed since we don't use pos after this
         }
 
-        Ok(Dataspace {
+        Ok(Self {
             space_type,
             rank,
             dimensions,

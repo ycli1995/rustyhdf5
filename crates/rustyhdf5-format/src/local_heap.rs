@@ -24,7 +24,7 @@ impl LocalHeap {
         offset: usize,
         offset_size: u8,
         length_size: u8,
-    ) -> Result<LocalHeap, FormatError> {
+    ) -> Result<Self, FormatError> {
         // signature(4) + version(1) + reserved(3) = 8, then length_size*2 + offset_size
         let ls = length_size as usize;
         let os = offset_size as usize;
@@ -52,7 +52,7 @@ impl LocalHeap {
         pos += ls;
         let data_segment_address = read_offset(file_data, pos, offset_size)?;
 
-        Ok(LocalHeap {
+        Ok(Self {
             data_segment_size,
             free_list_head_offset,
             data_segment_address,

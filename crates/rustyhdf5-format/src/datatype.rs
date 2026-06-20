@@ -249,7 +249,7 @@ impl Datatype {
     /// Parse a datatype message from raw bytes.
     ///
     /// Returns `(Datatype, bytes_consumed)` for recursive parsing.
-    pub fn parse(data: &[u8]) -> Result<(Datatype, usize), FormatError> {
+    pub fn parse(data: &[u8]) -> Result<(Self, usize), FormatError> {
         // Minimum header: 4 bytes (class_and_version + 3 bytes bit field) + 4 bytes size = 8
         ensure_len(data, 0, 8)?;
 
@@ -273,7 +273,7 @@ impl Datatype {
                 let signed = (bf0 >> 3) & 0x01 == 1;
                 let (bit_offset, bit_precision) = parse_bit_offset_and_precision(data, &mut pos)?;
                 Ok((
-                    Datatype::FixedPoint {
+                    Self::FixedPoint {
                         size,
                         byte_order,
                         signed,
@@ -303,7 +303,7 @@ impl Datatype {
                 let exponent_bias = LittleEndian::read_u32(&data[pos + 4..pos + 8]);
                 pos += 8;
                 Ok((
-                    Datatype::FloatingPoint {
+                    Self::FloatingPoint {
                         size,
                         byte_order,
                         bit_offset,
@@ -323,7 +323,7 @@ impl Datatype {
                 let bit_precision = LittleEndian::read_u16(&data[pos..pos + 2]);
                 pos += 2;
                 Ok((
-                    Datatype::Time {
+                    Self::Time {
                         size,
                         bit_precision,
                     },
@@ -337,7 +337,7 @@ impl Datatype {
                 let padding = parse_string_padding(padding_val)?;
                 let charset = parse_charset(charset_val)?;
                 Ok((
-                    Datatype::String {
+                    Self::String {
                         size,
                         padding,
                         charset,
@@ -351,7 +351,7 @@ impl Datatype {
                 let byte_order = parse_byte_order(bf0);
                 let (bit_offset, bit_precision) = parse_bit_offset_and_precision(data, &mut pos)?;
                 Ok((
-                    Datatype::BitField {
+                    Self::BitField {
                         size,
                         byte_order,
                         bit_offset,
@@ -368,7 +368,7 @@ impl Datatype {
                 // Tags are padded to multiple of 8 bytes
                 let padded = pad8(tag_len);
                 let pos = 8 + padded; // from start of properties
-                Ok((Datatype::Opaque { size, tag }, pos))
+                Ok((Self::Opaque { size, tag }, pos))
             }
             CLASS_ID_COMPOUND => {
                 // Compound
@@ -395,7 +395,7 @@ impl Datatype {
                         // dimensionality(1) + reserved(3) + dim_perm(4) + 4 dim slots(16) = 24
                         ensure_len(data, pos, 24)?;
                         pos += 24;
-                        let (member_dt, consumed) = Datatype::parse(&data[pos..])?;
+                        let (member_dt, consumed) = Self::parse(&data[pos..])?;
                         pos += consumed;
                         members.push(CompoundMember {
                             name,
@@ -409,7 +409,7 @@ impl Datatype {
                         version,
                     });
                 }
-                Ok((Datatype::Compound { size, members }, pos))
+                Ok((Self::Compound { size, members }, pos))
             }
             CLASS_ID_REFERENCE => {
                 // Reference
@@ -419,13 +419,13 @@ impl Datatype {
                     1 => ReferenceType::DatasetRegion,
                     _ => return Err(FormatError::InvalidReferenceType(ref_type_val)),
                 };
-                Ok((Datatype::Reference { size, ref_type }, pos))
+                Ok((Self::Reference { size, ref_type }, pos))
             }
             CLASS_ID_ENUMERATION => {
                 // Enumeration
                 let num_members = (bf0 as u16) | ((bf1 as u16) << 8);
                 // Parse base type
-                let (base_type, base_consumed) = Datatype::parse(&data[pos..])?;
+                let (base_type, base_consumed) = Self::parse(&data[pos..])?;
                 pos += base_consumed;
                 let base_size = base_type.type_size();
                 let mut members = Vec::with_capacity(num_members as usize);
@@ -454,7 +454,7 @@ impl Datatype {
                     });
                 }
                 Ok((
-                    Datatype::Enumeration {
+                    Self::Enumeration {
                         size,
                         base_type: Box::new(base_type),
                         members,
@@ -478,10 +478,10 @@ impl Datatype {
                 } else {
                     None
                 };
-                let (base_type, consumed) = Datatype::parse(&data[pos..])?;
+                let (base_type, consumed) = Self::parse(&data[pos..])?;
                 pos += consumed;
                 Ok((
-                    Datatype::VariableLength {
+                    Self::VariableLength {
                         is_string,
                         padding,
                         charset,
@@ -516,7 +516,7 @@ impl Datatype {
                     let (base_type, consumed) = Datatype::parse(&data[*pos..])?;
                     *pos += consumed;
                     Ok((
-                        Datatype::Array {
+                    Datatype::Array {
                             base_type: Box::new(base_type),
                             dimensions,
                         },
@@ -545,7 +545,7 @@ impl Datatype {
                 let ob = offset_bytes_for_size(size);
                 let mut members = Vec::with_capacity(num_members as usize);
                 Self::parse_compound_members(data, &mut members, &mut pos, ob)?;
-                Ok((Datatype::Compound { size, members }, pos))
+                Ok((Self::Compound { size, members }, pos))
             }
             _ => Err(FormatError::InvalidDatatypeClass(class_id)),
         }
@@ -554,7 +554,7 @@ impl Datatype {
     /// Serialize datatype to HDF5 message bytes.
     pub fn serialize(&self) -> Vec<u8> {
         match self {
-            Datatype::FixedPoint {
+            Self::FixedPoint {
                 size,
                 byte_order,
                 signed,
@@ -573,7 +573,7 @@ impl Datatype {
                 buf.extend_from_slice(&bit_precision.to_le_bytes());
                 buf
             }
-            Datatype::FloatingPoint {
+            Self::FloatingPoint {
                 size,
                 byte_order,
                 bit_offset,
@@ -606,7 +606,7 @@ impl Datatype {
                 buf.extend_from_slice(&exponent_bias.to_le_bytes());
                 buf
             }
-            Datatype::String {
+            Self::String {
                 size,
                 padding,
                 charset,
@@ -616,7 +616,7 @@ impl Datatype {
                 let bf0 = pad_val | (cs_val << 4);
                 Self::build_header(CLASS_ID_STRING, 1, [bf0, 0, 0], *size)
             }
-            Datatype::VariableLength {
+            Self::VariableLength {
                 is_string,
                 padding,
                 charset,
@@ -638,7 +638,7 @@ impl Datatype {
                 buf.extend_from_slice(&base_type.serialize());
                 buf
             }
-            Datatype::Compound { size, members } => {
+            Self::Compound { size, members } => {
                 let num = members.len() as u16;
                 let bf0 = (num & 0xFF) as u8;
                 let bf1 = ((num >> 8) & 0xFF) as u8;
@@ -659,7 +659,7 @@ impl Datatype {
                 }
                 buf
             }
-            Datatype::Enumeration {
+            Self::Enumeration {
                 size,
                 base_type,
                 members,
@@ -681,7 +681,7 @@ impl Datatype {
                 }
                 buf
             }
-            Datatype::Array {
+            Self::Array {
                 base_type,
                 dimensions,
             } => {
@@ -700,17 +700,17 @@ impl Datatype {
     /// Return the size in bytes of one element of this type.
     pub fn type_size(&self) -> u32 {
         match self {
-            Datatype::FixedPoint { size, .. } => *size,
-            Datatype::FloatingPoint { size, .. } => *size,
-            Datatype::Time { size, .. } => *size,
-            Datatype::String { size, .. } => *size,
-            Datatype::BitField { size, .. } => *size,
-            Datatype::Opaque { size, .. } => *size,
-            Datatype::Compound { size, .. } => *size,
-            Datatype::Reference { size, .. } => *size,
-            Datatype::Enumeration { size, .. } => *size,
-            Datatype::VariableLength { .. } => 16, // typically pointer + length
-            Datatype::Array {
+            Self::FixedPoint { size, .. } => *size,
+            Self::FloatingPoint { size, .. } => *size,
+            Self::Time { size, .. } => *size,
+            Self::String { size, .. } => *size,
+            Self::BitField { size, .. } => *size,
+            Self::Opaque { size, .. } => *size,
+            Self::Compound { size, .. } => *size,
+            Self::Reference { size, .. } => *size,
+            Self::Enumeration { size, .. } => *size,
+            Self::VariableLength { .. } => 16, // typically pointer + length
+            Self::Array {
                 base_type,
                 dimensions,
             } => {
@@ -746,7 +746,7 @@ impl Datatype {
             *pos += name_len;
             let byte_offset = read_uint(data, *pos, ob)?;
             *pos += ob;
-            let (member_dt, consumed) = Datatype::parse(&data[*pos..])?;
+            let (member_dt, consumed) = Self::parse(&data[*pos..])?;
             *pos += consumed;
             members.push(CompoundMember {
                 name,

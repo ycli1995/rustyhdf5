@@ -176,205 +176,205 @@ pub enum FormatError {
 impl fmt::Display for FormatError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            FormatError::SignatureNotFound => {
+            Self::SignatureNotFound => {
                 write!(f, "HDF5 signature not found at any valid offset")
             }
-            FormatError::UnsupportedVersion(v) => {
+            Self::UnsupportedVersion(v) => {
                 write!(f, "unsupported superblock version: {v}")
             }
-            FormatError::UnexpectedEof {
+            Self::UnexpectedEof {
                 expected,
                 available,
             } => {
                 write!(f, "unexpected EOF: need {expected} bytes, have {available}")
             }
-            FormatError::InvalidOffsetSize(s) => {
+            Self::InvalidOffsetSize(s) => {
                 write!(f, "invalid offset size: {s} (must be 2, 4, or 8)")
             }
-            FormatError::InvalidLengthSize(s) => {
+            Self::InvalidLengthSize(s) => {
                 write!(f, "invalid length size: {s} (must be 2, 4, or 8)")
             }
-            FormatError::InvalidObjectHeaderSignature => {
+            Self::InvalidObjectHeaderSignature => {
                 write!(f, "invalid object header signature")
             }
-            FormatError::InvalidObjectHeaderVersion(v) => {
+            Self::InvalidObjectHeaderVersion(v) => {
                 write!(f, "invalid object header version: {v}")
             }
-            FormatError::UnsupportedMessage(id) => {
+            Self::UnsupportedMessage(id) => {
                 write!(
                     f,
                     "unsupported message type {id:#06x} marked as must-understand"
                 )
             }
-            FormatError::InvalidDatatypeClass(c) => {
+            Self::InvalidDatatypeClass(c) => {
                 write!(f, "invalid datatype class: {c}")
             }
-            FormatError::InvalidDatatypeVersion { class, version } => {
+            Self::InvalidDatatypeVersion { class, version } => {
                 write!(
                     f,
                     "invalid datatype version {version} for class {class}"
                 )
             }
-            FormatError::InvalidStringPadding(p) => {
+            Self::InvalidStringPadding(p) => {
                 write!(f, "invalid string padding type: {p}")
             }
-            FormatError::InvalidCharacterSet(c) => {
+            Self::InvalidCharacterSet(c) => {
                 write!(f, "invalid character set: {c}")
             }
-            FormatError::InvalidByteOrder(b) => {
+            Self::InvalidByteOrder(b) => {
                 write!(f, "invalid byte order: {b}")
             }
-            FormatError::InvalidReferenceType(r) => {
+            Self::InvalidReferenceType(r) => {
                 write!(f, "invalid reference type: {r}")
             }
-            FormatError::InvalidDataspaceVersion(v) => {
+            Self::InvalidDataspaceVersion(v) => {
                 write!(f, "invalid dataspace version: {v}")
             }
-            FormatError::InvalidDataspaceType(t) => {
+            Self::InvalidDataspaceType(t) => {
                 write!(f, "invalid dataspace type: {t}")
             }
-            FormatError::InvalidLayoutVersion(v) => {
+            Self::InvalidLayoutVersion(v) => {
                 write!(f, "invalid data layout version: {v}")
             }
-            FormatError::InvalidLayoutClass(c) => {
+            Self::InvalidLayoutClass(c) => {
                 write!(f, "invalid data layout class: {c}")
             }
-            FormatError::NoDataAllocated => {
+            Self::NoDataAllocated => {
                 write!(f, "no data allocated for contiguous layout")
             }
-            FormatError::TypeMismatch { expected, actual } => {
+            Self::TypeMismatch { expected, actual } => {
                 write!(f, "type mismatch: expected {expected}, got {actual}")
             }
-            FormatError::DataSizeMismatch { expected, actual } => {
+            Self::DataSizeMismatch { expected, actual } => {
                 write!(
                     f,
                     "data size mismatch: expected {expected} bytes, got {actual} bytes"
                 )
             }
-            FormatError::InvalidLocalHeapSignature => {
+            Self::InvalidLocalHeapSignature => {
                 write!(f, "invalid local heap signature")
             }
-            FormatError::InvalidLocalHeapVersion(v) => {
+            Self::InvalidLocalHeapVersion(v) => {
                 write!(f, "invalid local heap version: {v}")
             }
-            FormatError::InvalidBTreeSignature => {
+            Self::InvalidBTreeSignature => {
                 write!(f, "invalid B-tree v1 signature")
             }
-            FormatError::InvalidBTreeNodeType(t) => {
+            Self::InvalidBTreeNodeType(t) => {
                 write!(f, "invalid B-tree node type: {t}")
             }
-            FormatError::InvalidSymbolTableNodeSignature => {
+            Self::InvalidSymbolTableNodeSignature => {
                 write!(f, "invalid symbol table node signature")
             }
-            FormatError::InvalidSymbolTableNodeVersion(v) => {
+            Self::InvalidSymbolTableNodeVersion(v) => {
                 write!(f, "invalid symbol table node version: {v}")
             }
-            FormatError::PathNotFound(p) => {
+            Self::PathNotFound(p) => {
                 write!(f, "path not found: {p}")
             }
-            FormatError::InvalidLinkVersion(v) => {
+            Self::InvalidLinkVersion(v) => {
                 write!(f, "invalid link message version: {v}")
             }
-            FormatError::InvalidLinkType(t) => {
+            Self::InvalidLinkType(t) => {
                 write!(f, "invalid link type: {t}")
             }
-            FormatError::InvalidLinkInfoVersion(v) => {
+            Self::InvalidLinkInfoVersion(v) => {
                 write!(f, "invalid link info message version: {v}")
             }
-            FormatError::InvalidGroupInfoVersion(v) => {
+            Self::InvalidGroupInfoVersion(v) => {
                 write!(f, "invalid group info message version: {v}")
             }
-            FormatError::InvalidBTreeV2Signature => {
+            Self::InvalidBTreeV2Signature => {
                 write!(f, "invalid B-tree v2 signature")
             }
-            FormatError::InvalidBTreeV2Version(v) => {
+            Self::InvalidBTreeV2Version(v) => {
                 write!(f, "invalid B-tree v2 version: {v}")
             }
-            FormatError::InvalidFractalHeapSignature => {
+            Self::InvalidFractalHeapSignature => {
                 write!(f, "invalid fractal heap signature")
             }
-            FormatError::InvalidFractalHeapVersion(v) => {
+            Self::InvalidFractalHeapVersion(v) => {
                 write!(f, "invalid fractal heap version: {v}")
             }
-            FormatError::InvalidHeapIdType(t) => {
+            Self::InvalidHeapIdType(t) => {
                 write!(f, "invalid heap ID type: {t}")
             }
-            FormatError::InvalidAttributeVersion(v) => {
+            Self::InvalidAttributeVersion(v) => {
                 write!(f, "invalid attribute message version: {v}")
             }
-            FormatError::InvalidAttributeInfoVersion(v) => {
+            Self::InvalidAttributeInfoVersion(v) => {
                 write!(f, "invalid attribute info message version: {v}")
             }
-            FormatError::InvalidSharedMessageVersion(v) => {
+            Self::InvalidSharedMessageVersion(v) => {
                 write!(f, "invalid shared message version: {v}")
             }
-            FormatError::InvalidSohmTableVersion(v) => {
+            Self::InvalidSohmTableVersion(v) => {
                 write!(f, "invalid SOHM table version: {v}")
             }
-            FormatError::InvalidSohmTableSignature => {
+            Self::InvalidSohmTableSignature => {
                 write!(f, "invalid SOHM table signature (expected SMTB)")
             }
-            FormatError::InvalidSohmListSignature => {
+            Self::InvalidSohmListSignature => {
                 write!(f, "invalid SOHM list signature (expected SMLI)")
             }
-            FormatError::InvalidGlobalHeapSignature => {
+            Self::InvalidGlobalHeapSignature => {
                 write!(f, "invalid global heap collection signature")
             }
-            FormatError::InvalidGlobalHeapVersion(v) => {
+            Self::InvalidGlobalHeapVersion(v) => {
                 write!(f, "invalid global heap version: {v}")
             }
-            FormatError::GlobalHeapObjectNotFound { collection_address, index } => {
+            Self::GlobalHeapObjectNotFound { collection_address, index } => {
                 write!(f, "global heap object not found: collection {collection_address:#x}, index {index}")
             }
-            FormatError::VlDataError(msg) => {
+            Self::VlDataError(msg) => {
                 write!(f, "variable-length data error: {msg}")
             }
-            FormatError::SerializationError(msg) => {
+            Self::SerializationError(msg) => {
                 write!(f, "serialization error: {msg}")
             }
-            FormatError::DatasetMissingData => {
+            Self::DatasetMissingData => {
                 write!(f, "dataset is missing data")
             }
-            FormatError::DatasetMissingShape => {
+            Self::DatasetMissingShape => {
                 write!(f, "dataset is missing shape")
             }
-            FormatError::InvalidFilterPipelineVersion(v) => {
+            Self::InvalidFilterPipelineVersion(v) => {
                 write!(f, "invalid filter pipeline version: {v}")
             }
-            FormatError::UnsupportedFilter(id) => {
+            Self::UnsupportedFilter(id) => {
                 write!(f, "unsupported filter: {id}")
             }
-            FormatError::FilterError(msg) => {
+            Self::FilterError(msg) => {
                 write!(f, "filter error: {msg}")
             }
-            FormatError::DecompressionError(msg) => {
+            Self::DecompressionError(msg) => {
                 write!(f, "decompression error: {msg}")
             }
-            FormatError::CompressionError(msg) => {
+            Self::CompressionError(msg) => {
                 write!(f, "compression error: {msg}")
             }
-            FormatError::Fletcher32Mismatch { expected, computed } => {
+            Self::Fletcher32Mismatch { expected, computed } => {
                 write!(
                     f,
                     "fletcher32 mismatch: expected {expected:#010x}, computed {computed:#010x}"
                 )
             }
-            FormatError::ChunkedReadError(msg) => {
+            Self::ChunkedReadError(msg) => {
                 write!(f, "chunked read error: {msg}")
             }
-            FormatError::ChunkAssemblyError(msg) => {
+            Self::ChunkAssemblyError(msg) => {
                 write!(f, "chunk assembly error: {msg}")
             }
-            FormatError::ChecksumMismatch { expected, computed } => {
+            Self::ChecksumMismatch { expected, computed } => {
                 write!(
                     f,
                     "checksum mismatch: expected {expected:#010x}, computed {computed:#010x}"
                 )
             }
-            FormatError::NestingDepthExceeded => {
+            Self::NestingDepthExceeded => {
                 write!(f, "maximum nesting/continuation depth exceeded")
             }
-            FormatError::DuplicateDatasetName(name) => {
+            Self::DuplicateDatasetName(name) => {
                 write!(f, "duplicate dataset name during parallel merge: {name}")
             }
         }
