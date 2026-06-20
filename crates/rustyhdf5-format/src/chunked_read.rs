@@ -6,7 +6,7 @@ extern crate alloc;
 #[cfg(not(feature = "std"))]
 use alloc::{format, vec, vec::Vec};
 
-use crate::chunk_cache::{ChunkCache, CacheAlignedBuffer};
+use crate::chunk_cache::{ChunkCache, ChunkInfo, CacheAlignedBuffer};
 use crate::data_layout::DataLayout;
 use crate::dataspace::Dataspace;
 use crate::datatype::Datatype;
@@ -107,19 +107,6 @@ pub fn decompress_all_chunks_with_stats(
         seed,
         num_lanes,
     )
-}
-
-/// Information about a single chunk in a chunked dataset.
-#[derive(Debug, Clone)]
-pub struct ChunkInfo {
-    /// Size of chunk data in the file (after compression).
-    pub chunk_size: u32,
-    /// Bitmask of filters that were NOT applied (0 = all applied).
-    pub filter_mask: u32,
-    /// N-dimensional offset of this chunk in dataset space.
-    pub offsets: Vec<u64>,
-    /// File address of the chunk data.
-    pub address: u64,
 }
 
 /// Traverse B-tree v1 type 1 to collect all chunk locations.

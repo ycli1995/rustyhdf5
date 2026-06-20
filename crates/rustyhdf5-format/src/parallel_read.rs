@@ -7,7 +7,7 @@
 //! The lane assignment is seeded by dataset metadata so repeated reads of
 //! the same region produce identical partitions (cache-friendly, reproducible).
 
-use crate::chunked_read::ChunkInfo;
+use crate::chunk_cache::ChunkInfo;
 use crate::error::FormatError;
 use crate::filter_pipeline::FilterPipeline;
 use crate::filters::decompress_chunk;

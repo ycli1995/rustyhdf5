@@ -250,7 +250,7 @@ mod parallel_tests {
     // Test 12: Parallel decompression produces identical output to sequential
     #[test]
     fn parallel_matches_sequential() {
-        use rustyhdf5_format::chunked_read::ChunkInfo;
+        use rustyhdf5_format::chunk_cache::ChunkInfo;
         use rustyhdf5_format::filter_pipeline::{FilterDescription, FilterPipeline, FILTER_DEFLATE};
         use rustyhdf5_format::filters::compress_chunk;
 

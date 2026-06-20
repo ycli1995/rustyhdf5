@@ -6,7 +6,7 @@ extern crate alloc;
 #[cfg(not(feature = "std"))]
 use alloc::{format, vec, vec::Vec};
 
-use crate::chunked_read::ChunkInfo;
+use crate::chunk_cache::ChunkInfo;
 use crate::error::FormatError;
 use crate::utils::{read_offset, is_undefined_bytes, read_variable_length};
 

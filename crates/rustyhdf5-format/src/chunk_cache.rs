@@ -20,7 +20,18 @@ use std::collections::HashMap;
 #[cfg(not(feature = "std"))]
 use alloc::collections::BTreeMap;
 
-use crate::chunked_read::ChunkInfo;
+/// Information about a single chunk in a chunked dataset.
+#[derive(Debug, Clone)]
+pub struct ChunkInfo {
+    /// Size of chunk data in the file (after compression).
+    pub chunk_size: u32,
+    /// Bitmask of filters that were NOT applied (0 = all applied).
+    pub filter_mask: u32,
+    /// N-dimensional offset of this chunk in dataset space.
+    pub offsets: Vec<u64>,
+    /// File address of the chunk data.
+    pub address: u64,
+}
 
 // ---------------------------------------------------------------------------
 // Cache-line alignment constants (TVL — Tensor Virtualization Layout)
