@@ -117,7 +117,7 @@ impl DatasetSpec {
         }
         Self {
             name: name.to_string(),
-            datatype: rustyhdf5_format::type_builders::make_f64_type(),
+            datatype: rustyhdf5_format::datatype::Datatype::f64_le(),
             shape: vec![data.len() as u64],
             raw_data: raw,
             chunk_options: ChunkOptions::default(),
@@ -134,7 +134,7 @@ impl DatasetSpec {
         }
         Self {
             name: name.to_string(),
-            datatype: rustyhdf5_format::type_builders::make_i32_type(),
+            datatype: rustyhdf5_format::datatype::Datatype::i32_le(),
             shape: vec![data.len() as u64],
             raw_data: raw,
             chunk_options: ChunkOptions::default(),

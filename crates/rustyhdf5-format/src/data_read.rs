@@ -767,64 +767,6 @@ mod tests {
     use crate::dataspace::{Dataspace, DataspaceType};
     use crate::datatype::{CharacterSet, StringPadding};
 
-    fn make_f64_le_type() -> Datatype {
-        Datatype::FloatingPoint {
-            size: 8,
-            byte_order: DatatypeByteOrder::LittleEndian,
-            bit_offset: 0,
-            bit_precision: 64,
-            exponent_location: 52,
-            exponent_size: 11,
-            mantissa_location: 0,
-            mantissa_size: 52,
-            exponent_bias: 1023,
-        }
-    }
-
-    fn make_f32_be_type() -> Datatype {
-        Datatype::FloatingPoint {
-            size: 4,
-            byte_order: DatatypeByteOrder::BigEndian,
-            bit_offset: 0,
-            bit_precision: 32,
-            exponent_location: 23,
-            exponent_size: 8,
-            mantissa_location: 0,
-            mantissa_size: 23,
-            exponent_bias: 127,
-        }
-    }
-
-    fn make_i32_le_type() -> Datatype {
-        Datatype::FixedPoint {
-            size: 4,
-            byte_order: DatatypeByteOrder::LittleEndian,
-            signed: true,
-            bit_offset: 0,
-            bit_precision: 32,
-        }
-    }
-
-    fn make_i16_le_type() -> Datatype {
-        Datatype::FixedPoint {
-            size: 2,
-            byte_order: DatatypeByteOrder::LittleEndian,
-            signed: true,
-            bit_offset: 0,
-            bit_precision: 16,
-        }
-    }
-
-    fn make_u8_type() -> Datatype {
-        Datatype::FixedPoint {
-            size: 1,
-            byte_order: DatatypeByteOrder::LittleEndian,
-            signed: false,
-            bit_offset: 0,
-            bit_precision: 8,
-        }
-    }
-
     fn make_simple_dataspace(dims: &[u64]) -> Dataspace {
         Dataspace {
             space_type: DataspaceType::Simple,
@@ -836,7 +778,7 @@ mod tests {
 
     #[test]
     fn read_f64_compact() {
-        let dt = make_f64_le_type();
+        let dt = Datatype::f64_le();
         let ds = make_simple_dataspace(&[3]);
         let mut data = Vec::new();
         data.extend_from_slice(&1.0f64.to_le_bytes());
@@ -851,7 +793,7 @@ mod tests {
 
     #[test]
     fn read_i32_contiguous() {
-        let dt = make_i32_le_type();
+        let dt = Datatype::i32_le();
         let ds = make_simple_dataspace(&[4]);
         let mut file_data = vec![0u8; 1024];
         let offset = 256usize;
@@ -871,7 +813,7 @@ mod tests {
 
     #[test]
     fn read_u8_data() {
-        let dt = make_u8_type();
+        let dt = Datatype::u8_le();
         let ds = make_simple_dataspace(&[5]);
         let data = vec![10u8, 20, 30, 40, 50];
         let layout = DataLayout::Compact { data: data.clone() };
@@ -882,7 +824,7 @@ mod tests {
 
     #[test]
     fn read_f32_be() {
-        let dt = make_f32_be_type();
+        let dt = Datatype::f32_be();
         let ds = make_simple_dataspace(&[2]);
         let mut data = Vec::new();
         // Store as big-endian
@@ -896,7 +838,7 @@ mod tests {
 
     #[test]
     fn read_i16_le() {
-        let dt = make_i16_le_type();
+        let dt = Datatype::i16_le();
         let ds = make_simple_dataspace(&[3]);
         let mut data = Vec::new();
         data.extend_from_slice(&(-100i16).to_le_bytes());
@@ -939,7 +881,7 @@ mod tests {
 
     #[test]
     fn size_mismatch_compact() {
-        let dt = make_f64_le_type();
+        let dt = Datatype::f64_le();
         let ds = make_simple_dataspace(&[3]);
         let data = vec![0u8; 16]; // wrong: should be 24
         let layout = DataLayout::Compact { data };
@@ -949,7 +891,7 @@ mod tests {
 
     #[test]
     fn no_data_allocated() {
-        let dt = make_f64_le_type();
+        let dt = Datatype::f64_le();
         let ds = make_simple_dataspace(&[3]);
         let layout = DataLayout::Contiguous {
             address: None,
@@ -961,7 +903,7 @@ mod tests {
 
     #[test]
     fn string_type_mismatch_on_read_as_strings() {
-        let dt = make_i32_le_type();
+        let dt = Datatype::i32_le();
         let raw = vec![0u8; 8];
         let err = read_as_strings(&raw, &dt).unwrap_err();
         assert!(matches!(err, FormatError::TypeMismatch { .. }));
@@ -970,7 +912,7 @@ mod tests {
     #[test]
     fn read_f64_from_i32() {
         // read_as_f64 should work on FixedPoint types too
-        let dt = make_i32_le_type();
+        let dt = Datatype::i32_le();
         let mut raw = Vec::new();
         raw.extend_from_slice(&42i32.to_le_bytes());
         raw.extend_from_slice(&(-7i32).to_le_bytes());
@@ -1012,12 +954,12 @@ mod tests {
                 CompoundMember {
                     name: "x".to_string(),
                     byte_offset: 0,
-                    datatype: make_f64_le_type(),
+                    datatype: Datatype::f64_le(),
                 },
                 CompoundMember {
                     name: "id".to_string(),
                     byte_offset: 8,
-                    datatype: make_i32_le_type(),
+                    datatype: Datatype::i32_le(),
                 },
             ],
         };
@@ -1048,12 +990,12 @@ mod tests {
                 CompoundMember {
                     name: "x".to_string(),
                     byte_offset: 0,
-                    datatype: make_f64_le_type(),
+                    datatype: Datatype::f64_le(),
                 },
                 CompoundMember {
                     name: "id".to_string(),
                     byte_offset: 8,
-                    datatype: make_i32_le_type(),
+                    datatype: Datatype::i32_le(),
                 },
             ],
         };
@@ -1075,7 +1017,7 @@ mod tests {
         use crate::datatype::EnumMember;
         let dt = Datatype::Enumeration {
             size: 4,
-            base_type: Box::new(make_i32_le_type()),
+            base_type: Box::new(Datatype::i32_le()),
             members: vec![
                 EnumMember { name: "RED".to_string(), value: 0i32.to_le_bytes().to_vec() },
                 EnumMember { name: "GREEN".to_string(), value: 1i32.to_le_bytes().to_vec() },
@@ -1099,7 +1041,7 @@ mod tests {
     fn read_array_flat_basic() {
         // Array[3] of f64
         let dt = Datatype::Array {
-            base_type: Box::new(make_f64_le_type()),
+            base_type: Box::new(Datatype::f64_le()),
             dimensions: vec![3],
         };
         let mut raw = Vec::new();
@@ -1151,7 +1093,7 @@ mod tests {
 
     #[test]
     fn read_object_references_type_mismatch() {
-        let dt = make_f64_le_type();
+        let dt = Datatype::f64_le();
         let raw = vec![0u8; 8];
         let err = read_object_references(&raw, &dt, 8).unwrap_err();
         assert!(matches!(err, FormatError::TypeMismatch { .. }));
@@ -1174,7 +1116,7 @@ mod tests {
 
     #[test]
     fn read_region_references_type_mismatch() {
-        let dt = make_i32_le_type();
+        let dt = Datatype::i32_le();
         let raw = vec![0u8; 12];
         let err = read_region_references(&raw, &dt).unwrap_err();
         assert!(matches!(err, FormatError::TypeMismatch { .. }));
@@ -1182,7 +1124,7 @@ mod tests {
 
     #[test]
     fn zerocopy_contiguous_returns_slice_into_file_data() {
-        let dt = make_f64_le_type();
+        let dt = Datatype::f64_le();
         let ds = make_simple_dataspace(&[3]);
         let mut file_data = vec![0u8; 1024];
         let offset = 256usize;
@@ -1207,7 +1149,7 @@ mod tests {
 
     #[test]
     fn zerocopy_compact_returns_none() {
-        let dt = make_f64_le_type();
+        let dt = Datatype::f64_le();
         let ds = make_simple_dataspace(&[1]);
         let data = vec![0u8; 8];
         let layout = DataLayout::Compact { data };
@@ -1217,7 +1159,7 @@ mod tests {
 
     #[test]
     fn zerocopy_no_data_allocated() {
-        let dt = make_f64_le_type();
+        let dt = Datatype::f64_le();
         let ds = make_simple_dataspace(&[1]);
         let layout = DataLayout::Contiguous {
             address: None,
@@ -1229,7 +1171,7 @@ mod tests {
 
     #[test]
     fn zerocopy_size_mismatch() {
-        let dt = make_f64_le_type();
+        let dt = Datatype::f64_le();
         let ds = make_simple_dataspace(&[3]);
         let file_data = vec![0u8; 1024];
         let layout = DataLayout::Contiguous {

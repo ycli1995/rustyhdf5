@@ -225,12 +225,11 @@ fn check_duplicates(entries: &[IndexEntry]) -> Result<(), FormatError> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::type_builders::make_f64_type;
 
     fn sample_meta(name: &str) -> DatasetMetadata {
         build_dataset_metadata(
             name,
-            make_f64_type(),
+            Datatype::f64_le(),
             vec![3],
             vec![0u8; 24],
             ChunkOptions::default(),

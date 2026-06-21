@@ -187,7 +187,7 @@ fn h5py_reads_our_array_dataset() {
 
     let mut fw = FileWriter::new();
     fw.create_dataset("vectors").with_array_data(
-        rustyhdf5_format::type_builders::make_f64_type(), &[3], raw, 2,
+        rustyhdf5_format::datatype::Datatype::f64_le(), &[3], raw, 2,
     );
     let bytes = fw.finish().unwrap();
     let path = std::env::temp_dir().join("rustyhdf5_array.h5");

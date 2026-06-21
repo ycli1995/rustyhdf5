@@ -246,6 +246,272 @@ fn read_uint(data: &[u8], offset: usize, nbytes: usize) -> Result<u64, FormatErr
 }
 
 impl Datatype {
+    // ---- Little-endian numeric type constructors ----
+
+    pub fn u8_le() -> Self {
+        Self::FixedPoint {
+            size: 1,
+            byte_order: DatatypeByteOrder::LittleEndian,
+            signed: false,
+            bit_offset: 0,
+            bit_precision: 8,
+        }
+    }
+
+    pub fn u16_le() -> Self {
+        Self::FixedPoint {
+            size: 2,
+            byte_order: DatatypeByteOrder::LittleEndian,
+            signed: false,
+            bit_offset: 0,
+            bit_precision: 16,
+        }
+    }
+
+    pub fn u32_le() -> Self {
+        Self::FixedPoint {
+            size: 4,
+            byte_order: DatatypeByteOrder::LittleEndian,
+            signed: false,
+            bit_offset: 0,
+            bit_precision: 32,
+        }
+    }
+
+    pub fn u64_le() -> Self {
+        Self::FixedPoint {
+            size: 8,
+            byte_order: DatatypeByteOrder::LittleEndian,
+            signed: false,
+            bit_offset: 0,
+            bit_precision: 64,
+        }
+    }
+
+    pub fn i8_le() -> Self {
+        Self::FixedPoint {
+            size: 1,
+            byte_order: DatatypeByteOrder::LittleEndian,
+            signed: true,
+            bit_offset: 0,
+            bit_precision: 8,
+        }
+    }
+
+    pub fn i16_le() -> Self {
+        Self::FixedPoint {
+            size: 2,
+            byte_order: DatatypeByteOrder::LittleEndian,
+            signed: true,
+            bit_offset: 0,
+            bit_precision: 16,
+        }
+    }
+
+    pub fn i32_le() -> Self {
+        Self::FixedPoint {
+            size: 4,
+            byte_order: DatatypeByteOrder::LittleEndian,
+            signed: true,
+            bit_offset: 0,
+            bit_precision: 32,
+        }
+    }
+
+    pub fn i64_le() -> Self {
+        Self::FixedPoint {
+            size: 8,
+            byte_order: DatatypeByteOrder::LittleEndian,
+            signed: true,
+            bit_offset: 0,
+            bit_precision: 64,
+        }
+    }
+
+    pub fn f32_le() -> Self {
+        Self::FloatingPoint {
+            size: 4,
+            byte_order: DatatypeByteOrder::LittleEndian,
+            bit_offset: 0,
+            bit_precision: 32,
+            exponent_location: 23,
+            exponent_size: 8,
+            mantissa_location: 0,
+            mantissa_size: 23,
+            exponent_bias: 127,
+        }
+    }
+
+    pub fn f64_le() -> Self {
+        Self::FloatingPoint {
+            size: 8,
+            byte_order: DatatypeByteOrder::LittleEndian,
+            bit_offset: 0,
+            bit_precision: 64,
+            exponent_location: 52,
+            exponent_size: 11,
+            mantissa_location: 0,
+            mantissa_size: 52,
+            exponent_bias: 1023,
+        }
+    }
+
+    pub fn u8_be() -> Self {
+        Self::FixedPoint {
+            size: 1,
+            byte_order: DatatypeByteOrder::BigEndian,
+            signed: false,
+            bit_offset: 0,
+            bit_precision: 8,
+        }
+    }
+
+    pub fn u16_be() -> Self {
+        Self::FixedPoint {
+            size: 2,
+            byte_order: DatatypeByteOrder::BigEndian,
+            signed: false,
+            bit_offset: 0,
+            bit_precision: 16,
+        }
+    }
+
+    pub fn u32_be() -> Self {
+        Self::FixedPoint {
+            size: 4,
+            byte_order: DatatypeByteOrder::BigEndian,
+            signed: false,
+            bit_offset: 0,
+            bit_precision: 32,
+        }
+    }
+
+    pub fn u64_be() -> Self {
+        Self::FixedPoint {
+            size: 8,
+            byte_order: DatatypeByteOrder::BigEndian,
+            signed: false,
+            bit_offset: 0,
+            bit_precision: 64,
+        }
+    }
+
+    pub fn i8_be() -> Self {
+        Self::FixedPoint {
+            size: 1,
+            byte_order: DatatypeByteOrder::BigEndian,
+            signed: true,
+            bit_offset: 0,
+            bit_precision: 8,
+        }
+    }
+
+    pub fn i16_be() -> Self {
+        Self::FixedPoint {
+            size: 2,
+            byte_order: DatatypeByteOrder::BigEndian,
+            signed: true,
+            bit_offset: 0,
+            bit_precision: 16,
+        }
+    }
+
+    pub fn i32_be() -> Self {
+        Self::FixedPoint {
+            size: 4,
+            byte_order: DatatypeByteOrder::BigEndian,
+            signed: true,
+            bit_offset: 0,
+            bit_precision: 32,
+        }
+    }
+
+    pub fn i64_be() -> Self {
+        Self::FixedPoint {
+            size: 8,
+            byte_order: DatatypeByteOrder::BigEndian,
+            signed: true,
+            bit_offset: 0,
+            bit_precision: 64,
+        }
+    }
+
+    pub fn f32_be() -> Self {
+        Self::FloatingPoint {
+            size: 4,
+            byte_order: DatatypeByteOrder::BigEndian,
+            bit_offset: 0,
+            bit_precision: 32,
+            exponent_location: 23,
+            exponent_size: 8,
+            mantissa_location: 0,
+            mantissa_size: 23,
+            exponent_bias: 127,
+        }
+    }
+
+    pub fn f64_be() -> Self {
+        Self::FloatingPoint {
+            size: 8,
+            byte_order: DatatypeByteOrder::BigEndian,
+            bit_offset: 0,
+            bit_precision: 64,
+            exponent_location: 52,
+            exponent_size: 11,
+            mantissa_location: 0,
+            mantissa_size: 52,
+            exponent_bias: 1023,
+        }
+    }
+
+    pub fn string_null_terminate_ascii(size: u32) -> Self {
+        Self::String {
+            size,
+            padding: StringPadding::NullTerminate,
+            charset: CharacterSet::Ascii,
+        }
+    }
+
+    pub fn string_null_padded_ascii(size: u32) -> Self {
+        Self::String {
+            size,
+            padding: StringPadding::NullPad,
+            charset: CharacterSet::Ascii,
+        }
+    }
+
+    pub fn string_space_padded_ascii(size: u32) -> Self {
+        Self::String {
+            size,
+            padding: StringPadding::SpacePad,
+            charset: CharacterSet::Ascii,
+        }
+    }
+
+    pub fn string_null_terminate_utf8(size: u32) -> Self {
+        Self::String {
+            size,
+            padding: StringPadding::NullTerminate,
+            charset: CharacterSet::Utf8,
+        }
+    }
+
+    pub fn string_null_padded_utf8(size: u32) -> Self {
+        Self::String {
+            size,
+            padding: StringPadding::NullPad,
+            charset: CharacterSet::Utf8,
+        }
+    }
+
+    pub fn string_space_padded_utf8(size: u32) -> Self {
+        Self::String {
+            size,
+            padding: StringPadding::SpacePad,
+            charset: CharacterSet::Utf8,
+        }
+    }
+
     /// Parse a datatype message from raw bytes.
     ///
     /// Returns `(Datatype, bytes_consumed)` for recursive parsing.
@@ -516,7 +782,7 @@ impl Datatype {
                     let (base_type, consumed) = Datatype::parse(&data[*pos..])?;
                     *pos += consumed;
                     Ok((
-                    Datatype::Array {
+                        Datatype::Array {
                             base_type: Box::new(base_type),
                             dimensions,
                         },
@@ -806,98 +1072,132 @@ mod tests {
         buf
     }
 
-    /// Helper to construct a f64 LE datatype for tests.
-    fn f64_le() -> Datatype {
-        Datatype::FloatingPoint {
-            size: 8,
-            byte_order: DatatypeByteOrder::LittleEndian,
-            bit_offset: 0,
-            bit_precision: 64,
-            exponent_location: 52,
-            exponent_size: 11,
-            mantissa_location: 0,
-            mantissa_size: 52,
-            exponent_bias: 1023,
-        }
-    }
-
-    /// Helper to construct an i32 LE datatype for tests.
-    fn i32_le() -> Datatype {
-        Datatype::FixedPoint {
-            size: 4,
-            byte_order: DatatypeByteOrder::LittleEndian,
-            signed: true,
-            bit_offset: 0,
-            bit_precision: 32,
-        }
-    }
-
     #[test]
-    fn test_fixed_point_u8() {
+    fn test_fixed_point_u8_le() {
         let data = build_fixed_point(1, false, false, 0, 8);
         let (dt, consumed) = Datatype::parse(&data).unwrap();
         assert_eq!(consumed, 12);
-        assert_eq!(
-            dt,
-            Datatype::FixedPoint {
-                size: 1,
-                byte_order: DatatypeByteOrder::LittleEndian,
-                signed: false,
-                bit_offset: 0,
-                bit_precision: 8,
-            }
-        );
+        assert_eq!(dt, Datatype::u8_le());
+    }
+
+    #[test]
+    fn test_fixed_point_u8_be() {
+        let data = build_fixed_point(1, true, false, 0, 8);
+        let (dt, consumed) = Datatype::parse(&data).unwrap();
+        assert_eq!(consumed, 12);
+        assert_eq!(dt, Datatype::u8_be());
+    }
+
+    #[test]
+    fn test_fixed_point_i8_le() {
+        let data = build_fixed_point(1, false, true, 0, 8);
+        let (dt, consumed) = Datatype::parse(&data).unwrap();
+        assert_eq!(consumed, 12);
+        assert_eq!(dt, Datatype::i8_le());
+    }
+
+    #[test]
+    fn test_fixed_point_i8_be() {
+        let data = build_fixed_point(1, true, true, 0, 8);
+        let (dt, consumed) = Datatype::parse(&data).unwrap();
+        assert_eq!(consumed, 12);
+        assert_eq!(dt, Datatype::i8_be());
+    }
+
+    #[test]
+    fn test_fixed_point_u16_le() {
+        let data = build_fixed_point(2, false, false, 0, 16);
+        let (dt, consumed) = Datatype::parse(&data).unwrap();
+        assert_eq!(consumed, 12);
+        assert_eq!(dt, Datatype::u16_le());
+    }
+
+    #[test]
+    fn test_fixed_point_u16_be() {
+        let data = build_fixed_point(2, true, false, 0, 16);
+        let (dt, consumed) = Datatype::parse(&data).unwrap();
+        assert_eq!(consumed, 12);
+        assert_eq!(dt, Datatype::u16_be());
     }
 
     #[test]
     fn test_fixed_point_i16_le() {
         let data = build_fixed_point(2, false, true, 0, 16);
-        let (dt, _) = Datatype::parse(&data).unwrap();
-        assert_eq!(
-            dt,
-            Datatype::FixedPoint {
-                size: 2,
-                byte_order: DatatypeByteOrder::LittleEndian,
-                signed: true,
-                bit_offset: 0,
-                bit_precision: 16,
-            }
-        );
+        let (dt, consumed) = Datatype::parse(&data).unwrap();
+        assert_eq!(consumed, 12);
+        assert_eq!(dt, Datatype::i16_le());
+    }
+
+    #[test]
+    fn test_fixed_point_i16_be() {
+        let data = build_fixed_point(2, true, true, 0, 16);
+        let (dt, consumed) = Datatype::parse(&data).unwrap();
+        assert_eq!(consumed, 12);
+        assert_eq!(dt, Datatype::i16_be());
+    }
+
+    #[test]
+    fn test_fixed_point_u32_le() {
+        let data = build_fixed_point(4, false, false, 0, 32);
+        let (dt, consumed) = Datatype::parse(&data).unwrap();
+        assert_eq!(consumed, 12);
+        assert_eq!(dt, Datatype::u32_le());
     }
 
     #[test]
     fn test_fixed_point_u32_be() {
         let data = build_fixed_point(4, true, false, 0, 32);
-        let (dt, _) = Datatype::parse(&data).unwrap();
-        match &dt {
-            Datatype::FixedPoint {
-                byte_order,
-                signed,
-                size,
-                ..
-            } => {
-                assert_eq!(*byte_order, DatatypeByteOrder::BigEndian);
-                assert!(!signed);
-                assert_eq!(*size, 4);
-            }
-            _ => panic!("expected FixedPoint"),
-        }
+        let (dt, consumed) = Datatype::parse(&data).unwrap();
+        assert_eq!(consumed, 12);
+        assert_eq!(dt, Datatype::u32_be());
+    }
+
+    #[test]
+    fn test_fixed_point_i32_le() {
+        let data = build_fixed_point(4, false, true, 0, 32);
+        let (dt, consumed) = Datatype::parse(&data).unwrap();
+        assert_eq!(consumed, 12);
+        assert_eq!(dt, Datatype::i32_le());
+    }
+
+    #[test]
+    fn test_fixed_point_i32_be() {
+        let data = build_fixed_point(4, true, true, 0, 32);
+        let (dt, consumed) = Datatype::parse(&data).unwrap();
+        assert_eq!(consumed, 12);
+        assert_eq!(dt, Datatype::i32_be());
+    }
+
+    #[test]
+    fn test_fixed_point_u64_le() {
+        let data = build_fixed_point(8, false, false, 0, 64);
+        let (dt, consumed) = Datatype::parse(&data).unwrap();
+        assert_eq!(consumed, 12);
+        assert_eq!(dt, Datatype::u64_le());
+    }
+
+    #[test]
+    fn test_fixed_point_u64_be() {
+        let data = build_fixed_point(8, true, false, 0, 64);
+        let (dt, consumed) = Datatype::parse(&data).unwrap();
+        assert_eq!(consumed, 12);
+        assert_eq!(dt, Datatype::u64_be());
     }
 
     #[test]
     fn test_fixed_point_i64_le() {
         let data = build_fixed_point(8, false, true, 0, 64);
-        let (dt, _) = Datatype::parse(&data).unwrap();
-        assert_eq!(
-            dt,
-            Datatype::FixedPoint {
-                size: 8,
-                byte_order: DatatypeByteOrder::LittleEndian,
-                signed: true,
-                bit_offset: 0,
-                bit_precision: 64,
-            }
-        );
+        let (dt, consumed) = Datatype::parse(&data).unwrap();
+        assert_eq!(consumed, 12);
+        assert_eq!(dt, Datatype::i64_le());
+    }
+
+    #[test]
+    fn test_fixed_point_i64_be() {
+        let data = build_fixed_point(8, true, false, 0, 64);
+        let (dt, consumed) = Datatype::parse(&data).unwrap();
+        assert_eq!(consumed, 12);
+        assert_eq!(dt, Datatype::i64_be());
     }
 
     #[test]
@@ -906,70 +1206,33 @@ mod tests {
         let data = build_float(4, 23, 8, 0, 23, 127);
         let (dt, consumed) = Datatype::parse(&data).unwrap();
         assert_eq!(consumed, 20);
-        assert_eq!(
-            dt,
-            Datatype::FloatingPoint {
-                size: 4,
-                byte_order: DatatypeByteOrder::LittleEndian,
-                bit_offset: 0,
-                bit_precision: 32,
-                exponent_location: 23,
-                exponent_size: 8,
-                mantissa_location: 0,
-                mantissa_size: 23,
-                exponent_bias: 127,
-            }
-        );
+        assert_eq!(dt, Datatype::f32_le());
     }
 
     #[test]
     fn test_float_f64_le() {
         let data = build_float(8, 52, 11, 0, 52, 1023);
-        let (dt, _) = Datatype::parse(&data).unwrap();
-        assert_eq!(
-            dt,
-            Datatype::FloatingPoint {
-                size: 8,
-                byte_order: DatatypeByteOrder::LittleEndian,
-                bit_offset: 0,
-                bit_precision: 64,
-                exponent_location: 52,
-                exponent_size: 11,
-                mantissa_location: 0,
-                mantissa_size: 52,
-                exponent_bias: 1023,
-            }
-        );
+        let (dt, consumed) = Datatype::parse(&data).unwrap();
+        assert_eq!(consumed, 20);
+        assert_eq!(dt, Datatype::f64_le(),);
     }
 
     #[test]
     fn test_string_null_terminated_ascii() {
-        let buf = Datatype::build_header(CLASS_ID_STRING, 1, [0x00, 0, 0], 10); // padding=0(nullterm), charset=0(ascii)
+        let size: u32 = 10;
+        let buf = Datatype::build_header(CLASS_ID_STRING, 1, [0x00, 0, 0], size); // padding=0(nullterm), charset=0(ascii)
         let (dt, consumed) = Datatype::parse(&buf).unwrap();
         assert_eq!(consumed, 8);
-        assert_eq!(
-            dt,
-            Datatype::String {
-                size: 10,
-                padding: StringPadding::NullTerminate,
-                charset: CharacterSet::Ascii,
-            }
-        );
+        assert_eq!(dt, Datatype::string_null_terminate_ascii(size));
     }
 
     #[test]
     fn test_string_space_padded_utf8() {
+        let size: u32 = 32;
         // padding=2(space pad), charset=1(utf8) → bf0 = 0x12
-        let buf = Datatype::build_header(CLASS_ID_STRING, 1, [0x12, 0, 0], 32);
+        let buf = Datatype::build_header(CLASS_ID_STRING, 1, [0x12, 0, 0], size);
         let (dt, _) = Datatype::parse(&buf).unwrap();
-        assert_eq!(
-            dt,
-            Datatype::String {
-                size: 32,
-                padding: StringPadding::SpacePad,
-                charset: CharacterSet::Utf8,
-            }
-        );
+        assert_eq!(dt, Datatype::string_space_padded_utf8(size));
     }
 
     #[test]
@@ -1314,17 +1577,17 @@ mod tests {
                 CompoundMember {
                     name: "x".to_string(),
                     byte_offset: 0,
-                    datatype: f64_le(),
+                    datatype: Datatype::f64_le(),
                 },
                 CompoundMember {
                     name: "y".to_string(),
                     byte_offset: 8,
-                    datatype: f64_le(),
+                    datatype: Datatype::f64_le(),
                 },
                 CompoundMember {
                     name: "id".to_string(),
                     byte_offset: 16,
-                    datatype: i32_le(),
+                    datatype: Datatype::i32_le(),
                 },
             ],
         };
@@ -1337,7 +1600,7 @@ mod tests {
     fn serialize_parse_enum_roundtrip() {
         let dt = Datatype::Enumeration {
             size: 4,
-            base_type: Box::new(i32_le()),
+            base_type: Box::new(Datatype::i32_le()),
             members: vec![
                 EnumMember {
                     name: "RED".to_string(),
@@ -1361,7 +1624,7 @@ mod tests {
     #[test]
     fn serialize_parse_array_roundtrip() {
         let dt = Datatype::Array {
-            base_type: Box::new(f64_le()),
+            base_type: Box::new(Datatype::f64_le()),
             dimensions: vec![3],
         };
         let bytes = dt.serialize();
@@ -1371,11 +1634,11 @@ mod tests {
 
     #[test]
     fn test_type_size() {
-        let dt = i32_le();
+        let dt = Datatype::i32_le();
         assert_eq!(dt.type_size(), 4);
 
         let dt = Datatype::Array {
-            base_type: Box::new(i32_le()),
+            base_type: Box::new(Datatype::i32_le()),
             dimensions: vec![3, 4],
         };
         assert_eq!(dt.type_size(), 48);

@@ -827,19 +827,18 @@ mod tests {
     fn finalize_parallel_basic() {
         use crate::metadata_index::{MetadataBlock, build_dataset_metadata};
         use crate::chunked_write::ChunkOptions;
-        use crate::type_builders::make_f64_type;
 
         let mut b0 = MetadataBlock::new(0);
         let data_a: Vec<u8> = [1.0f64, 2.0, 3.0].iter().flat_map(|v| v.to_le_bytes()).collect();
         b0.add_dataset(build_dataset_metadata(
-            "alpha", make_f64_type(), vec![3], data_a,
+            "alpha", Datatype::f64_le(), vec![3], data_a,
             ChunkOptions::default(), None, vec![],
         ));
 
         let mut b1 = MetadataBlock::new(1);
         let data_b: Vec<u8> = [10.0f64, 20.0].iter().flat_map(|v| v.to_le_bytes()).collect();
         b1.add_dataset(build_dataset_metadata(
-            "beta", make_f64_type(), vec![2], data_b,
+            "beta", Datatype::f64_le(), vec![2], data_b,
             ChunkOptions::default(), None, vec![],
         ));
 
@@ -852,16 +851,15 @@ mod tests {
     fn finalize_parallel_duplicate_error() {
         use crate::metadata_index::{MetadataBlock, build_dataset_metadata};
         use crate::chunked_write::ChunkOptions;
-        use crate::type_builders::make_f64_type;
 
         let mut b0 = MetadataBlock::new(0);
         b0.add_dataset(build_dataset_metadata(
-            "dup", make_f64_type(), vec![1], vec![0u8; 8],
+            "dup", Datatype::f64_le(), vec![1], vec![0u8; 8],
             ChunkOptions::default(), None, vec![],
         ));
         let mut b1 = MetadataBlock::new(1);
         b1.add_dataset(build_dataset_metadata(
-            "dup", make_f64_type(), vec![1], vec![0u8; 8],
+            "dup", Datatype::f64_le(), vec![1], vec![0u8; 8],
             ChunkOptions::default(), None, vec![],
         ));
         let err = finalize_parallel(vec![b0, b1]).unwrap_err();

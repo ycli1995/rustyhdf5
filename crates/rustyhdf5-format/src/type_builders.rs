@@ -12,66 +12,6 @@ use crate::datatype::{
     CharacterSet, CompoundMember, Datatype, DatatypeByteOrder, EnumMember, StringPadding,
 };
 
-// ---- Datatype constructors ----
-
-pub fn make_f64_type() -> Datatype {
-    Datatype::FloatingPoint {
-        size: 8,
-        byte_order: DatatypeByteOrder::LittleEndian,
-        bit_offset: 0,
-        bit_precision: 64,
-        exponent_location: 52,
-        exponent_size: 11,
-        mantissa_location: 0,
-        mantissa_size: 52,
-        exponent_bias: 1023,
-    }
-}
-
-pub fn make_f32_type() -> Datatype {
-    Datatype::FloatingPoint {
-        size: 4,
-        byte_order: DatatypeByteOrder::LittleEndian,
-        bit_offset: 0,
-        bit_precision: 32,
-        exponent_location: 23,
-        exponent_size: 8,
-        mantissa_location: 0,
-        mantissa_size: 23,
-        exponent_bias: 127,
-    }
-}
-
-pub fn make_i32_type() -> Datatype {
-    Datatype::FixedPoint {
-        size: 4,
-        byte_order: DatatypeByteOrder::LittleEndian,
-        signed: true,
-        bit_offset: 0,
-        bit_precision: 32,
-    }
-}
-
-pub fn make_i64_type() -> Datatype {
-    Datatype::FixedPoint {
-        size: 8,
-        byte_order: DatatypeByteOrder::LittleEndian,
-        signed: true,
-        bit_offset: 0,
-        bit_precision: 64,
-    }
-}
-
-pub fn make_u8_type() -> Datatype {
-    Datatype::FixedPoint {
-        size: 1,
-        byte_order: DatatypeByteOrder::LittleEndian,
-        signed: false,
-        bit_offset: 0,
-        bit_precision: 8,
-    }
-}
-
 // ---- Compound / Enum type builders ----
 
 /// Builder for constructing HDF5 compound (struct) datatypes.
@@ -92,23 +32,23 @@ impl CompoundTypeBuilder {
 
     /// Add an f64 field.
     pub fn f64_field(self, name: &str) -> Self {
-        self.field(name, make_f64_type())
+        self.field(name, Datatype::f64_le())
     }
     /// Add an f32 field.
     pub fn f32_field(self, name: &str) -> Self {
-        self.field(name, make_f32_type())
+        self.field(name, Datatype::f32_le())
     }
     /// Add an i32 field.
     pub fn i32_field(self, name: &str) -> Self {
-        self.field(name, make_i32_type())
+        self.field(name, Datatype::i32_le())
     }
     /// Add an i64 field.
     pub fn i64_field(self, name: &str) -> Self {
-        self.field(name, make_i64_type())
+        self.field(name, Datatype::i64_le())
     }
     /// Add a u8 field.
     pub fn u8_field(self, name: &str) -> Self {
-        self.field(name, make_u8_type())
+        self.field(name, Datatype::u8_le())
     }
 
     /// Build the compound datatype.
@@ -147,7 +87,7 @@ impl EnumTypeBuilder {
     /// Create a new enum builder with i32 base type.
     pub fn i32_based() -> Self {
         Self {
-            base_type: make_i32_type(),
+            base_type: Datatype::i32_le(),
             members: Vec::new(),
         }
     }
@@ -155,7 +95,7 @@ impl EnumTypeBuilder {
     /// Create a new enum builder with u8 base type.
     pub fn u8_based() -> Self {
         Self {
-            base_type: make_u8_type(),
+            base_type: Datatype::u8_le(),
             members: Vec::new(),
         }
     }
@@ -195,7 +135,7 @@ pub(crate) fn build_attr_message(name: &str, value: &AttrValue) -> AttributeMess
     match value {
         AttrValue::F64(v) => AttributeMessage {
             name: name.to_string(),
-            datatype: make_f64_type(),
+            datatype: Datatype::f64_le(),
             dataspace: scalar_ds(),
             raw_data: v.to_le_bytes().to_vec(),
         },
@@ -206,14 +146,14 @@ pub(crate) fn build_attr_message(name: &str, value: &AttrValue) -> AttributeMess
             }
             AttributeMessage {
                 name: name.to_string(),
-                datatype: make_f64_type(),
+                datatype: Datatype::f64_le(),
                 dataspace: simple_1d(arr.len() as u64),
                 raw_data: raw,
             }
         }
         AttrValue::I64(v) => AttributeMessage {
             name: name.to_string(),
-            datatype: make_i64_type(),
+            datatype: Datatype::i64_le(),
             dataspace: scalar_ds(),
             raw_data: v.to_le_bytes().to_vec(),
         },
@@ -224,7 +164,7 @@ pub(crate) fn build_attr_message(name: &str, value: &AttrValue) -> AttributeMess
             }
             AttributeMessage {
                 name: name.to_string(),
-                datatype: make_i64_type(),
+                datatype: Datatype::i64_le(),
                 dataspace: simple_1d(arr.len() as u64),
                 raw_data: raw,
             }
@@ -348,7 +288,7 @@ impl DatasetBuilder {
     }
 
     pub fn with_f64_data(&mut self, data: &[f64]) -> &mut Self {
-        self.datatype = Some(make_f64_type());
+        self.datatype = Some(Datatype::f64_le());
         let mut b = Vec::with_capacity(data.len() * 8);
         for &v in data {
             b.extend_from_slice(&v.to_le_bytes());
@@ -361,7 +301,7 @@ impl DatasetBuilder {
     }
 
     pub fn with_f32_data(&mut self, data: &[f32]) -> &mut Self {
-        self.datatype = Some(make_f32_type());
+        self.datatype = Some(Datatype::f32_le());
         let mut b = Vec::with_capacity(data.len() * 4);
         for &v in data {
             b.extend_from_slice(&v.to_le_bytes());
@@ -374,7 +314,7 @@ impl DatasetBuilder {
     }
 
     pub fn with_i32_data(&mut self, data: &[i32]) -> &mut Self {
-        self.datatype = Some(make_i32_type());
+        self.datatype = Some(Datatype::i32_le());
         let mut b = Vec::with_capacity(data.len() * 4);
         for &v in data {
             b.extend_from_slice(&v.to_le_bytes());
@@ -387,7 +327,7 @@ impl DatasetBuilder {
     }
 
     pub fn with_i64_data(&mut self, data: &[i64]) -> &mut Self {
-        self.datatype = Some(make_i64_type());
+        self.datatype = Some(Datatype::i64_le());
         let mut b = Vec::with_capacity(data.len() * 8);
         for &v in data {
             b.extend_from_slice(&v.to_le_bytes());
@@ -400,7 +340,7 @@ impl DatasetBuilder {
     }
 
     pub fn with_u8_data(&mut self, data: &[u8]) -> &mut Self {
-        self.datatype = Some(make_u8_type());
+        self.datatype = Some(Datatype::u8_le());
         self.data = Some(data.to_vec());
         if self.shape.is_none() {
             self.shape = Some(vec![data.len() as u64]);
