@@ -7,7 +7,7 @@ use byteorder::{ByteOrder, LittleEndian};
 
 use crate::error::FormatError;
 use crate::signature::HDF5_SIGNATURE;
-use crate::utils::read_offset;
+use crate::utils::{ensure_len, read_offset};
 
 /// Parsed HDF5 superblock (all versions).
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -52,17 +52,6 @@ fn validate_sizes(offset_size: u8, length_size: u8) -> Result<(), FormatError> {
     Ok(())
 }
 
-fn ensure_len(data: &[u8], needed: usize) -> Result<(), FormatError> {
-    if data.len() < needed {
-        Err(FormatError::UnexpectedEof {
-            expected: needed,
-            available: data.len(),
-        })
-    } else {
-        Ok(())
-    }
-}
-
 impl Superblock {
     /// Serialize this superblock to bytes.
     ///
@@ -103,7 +92,7 @@ impl Superblock {
     /// The signature must be present at the given offset.
     pub fn parse(data: &[u8], signature_offset: usize) -> Result<Self, FormatError> {
         let d = &data[signature_offset..];
-        ensure_len(d, 9)?; // signature(8) + version(1)
+        ensure_len(d, 0, 9)?; // signature(8) + version(1)
 
         // Verify signature
         if d[..8] != HDF5_SIGNATURE {
@@ -124,7 +113,7 @@ impl Superblock {
         // + shared_hdr_ver(1) + offset_size(1) + length_size(1) + reserved(1)
         // + group_leaf_k(2) + group_internal_k(2) + consistency_flags(4)
         // = 24 bytes before variable-sized fields
-        ensure_len(d, 24)?;
+        ensure_len(d, 0, 24)?;
 
         let offset_size = d[13];
         let length_size = d[14];
@@ -139,7 +128,7 @@ impl Superblock {
         let var_start = 24;
         let sym_entry_size = os + os + 4 + 4 + 16; // link_name_off, obj_hdr_addr, cache_type, reserved, scratch
         let total = var_start + 4 * os + sym_entry_size;
-        ensure_len(d, total)?;
+        ensure_len(d, 0, total)?;
 
         let mut pos = var_start;
         let base_address = read_offset(d, pos, offset_size)?;
@@ -180,7 +169,7 @@ impl Superblock {
         // + shared_hdr_ver(1) + offset_size(1) + length_size(1) + reserved(1)
         // + group_leaf_k(2) + group_internal_k(2) + indexed_storage_k(2) + reserved(2)
         // + consistency_flags(4) = 28
-        ensure_len(d, 28)?;
+        ensure_len(d, 0, 28)?;
 
         let offset_size = d[13];
         let length_size = d[14];
@@ -196,7 +185,7 @@ impl Superblock {
         let var_start = 28;
         let sym_entry_size = os + os + 4 + 4 + 16;
         let total = var_start + 4 * os + sym_entry_size;
-        ensure_len(d, total)?;
+        ensure_len(d, 0, total)?;
 
         let mut pos = var_start;
         let base_address = read_offset(d, pos, offset_size)?;
@@ -233,7 +222,7 @@ impl Superblock {
 
     fn parse_v2v3(d: &[u8], version: u8) -> Result<Self, FormatError> {
         // sig(8) + version(1) + offset_size(1) + length_size(1) + consistency_flags(1) = 12
-        ensure_len(d, 12)?;
+        ensure_len(d, 0, 12)?;
 
         let offset_size = d[9];
         let length_size = d[10];
@@ -243,7 +232,7 @@ impl Superblock {
         let os = offset_size as usize;
         // 4 addresses + checksum(4)
         let total = 12 + 4 * os + 4;
-        ensure_len(d, total)?;
+        ensure_len(d, 0, total)?;
 
         let mut pos = 12;
         let base_address = read_offset(d, pos, offset_size)?;
