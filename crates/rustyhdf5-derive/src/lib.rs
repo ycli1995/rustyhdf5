@@ -356,37 +356,19 @@ fn array_mapping(
     let (base_dt, elem_size, deser_one) = match elem_name.as_str() {
         "f64" => (
             quote! {
-                rustyhdf5_format::datatype::Datatype::FloatingPoint {
-                    size: 8,
-                    byte_order: rustyhdf5_format::datatype::DatatypeByteOrder::LittleEndian,
-                    bit_offset: 0, bit_precision: 64,
-                    exponent_location: 52, exponent_size: 11,
-                    mantissa_location: 0, mantissa_size: 52,
-                    exponent_bias: 1023,
-                }
+                rustyhdf5_format::datatype::Datatype::f64_le()
             },
             8usize,
             quote! { f64::from_le_bytes(_data[_pos.._pos + 8].try_into().unwrap()) },
         ),
         "f32" => (
             quote! {
-                rustyhdf5_format::datatype::Datatype::FloatingPoint {
-                    size: 4,
-                    byte_order: rustyhdf5_format::datatype::DatatypeByteOrder::LittleEndian,
-                    bit_offset: 0, bit_precision: 32,
-                    exponent_location: 23, exponent_size: 8,
-                    mantissa_location: 0, mantissa_size: 23,
-                    exponent_bias: 127,
-                }
+                rustyhdf5_format::datatype::Datatype::f32_le()
             },
             4usize,
             quote! { f32::from_le_bytes(_data[_pos.._pos + 4].try_into().unwrap()) },
         ),
-        "i8" => (
-            int_dt_quote(1, true),
-            1usize,
-            quote! { _data[_pos] as i8 },
-        ),
+        "i8" => (int_dt_quote(1, true), 1usize, quote! { _data[_pos] as i8 }),
         "i16" => (
             int_dt_quote(2, true),
             2usize,
@@ -402,11 +384,7 @@ fn array_mapping(
             8usize,
             quote! { i64::from_le_bytes(_data[_pos.._pos + 8].try_into().unwrap()) },
         ),
-        "u8" => (
-            int_dt_quote(1, false),
-            1usize,
-            quote! { _data[_pos] },
-        ),
+        "u8" => (int_dt_quote(1, false), 1usize, quote! { _data[_pos] }),
         "u16" => (
             int_dt_quote(2, false),
             2usize,

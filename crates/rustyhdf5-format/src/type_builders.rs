@@ -171,13 +171,7 @@ pub(crate) fn build_attr_message(name: &str, value: &AttrValue) -> AttributeMess
         }
         AttrValue::U64(v) => AttributeMessage {
             name: name.to_string(),
-            datatype: Datatype::FixedPoint {
-                size: 8,
-                byte_order: DatatypeByteOrder::LittleEndian,
-                signed: false,
-                bit_offset: 0,
-                bit_precision: 64,
-            },
+            datatype: Datatype::u64_le(),
             dataspace: scalar_ds(),
             raw_data: v.to_le_bytes().to_vec(),
         },

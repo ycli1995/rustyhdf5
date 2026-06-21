@@ -1194,7 +1194,7 @@ mod tests {
 
     #[test]
     fn test_fixed_point_i64_be() {
-        let data = build_fixed_point(8, true, false, 0, 64);
+        let data = build_fixed_point(8, true, true, 0, 64);
         let (dt, consumed) = Datatype::parse(&data).unwrap();
         assert_eq!(consumed, 12);
         assert_eq!(dt, Datatype::i64_be());

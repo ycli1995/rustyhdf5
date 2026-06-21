@@ -84,13 +84,7 @@ fn object_ref_wrong_type_errors() {
 
 #[test]
 fn object_ref_non_reference_type_errors() {
-    let dt = Datatype::FixedPoint {
-        size: 8,
-        byte_order: rustyhdf5_format::datatype::DatatypeByteOrder::LittleEndian,
-        signed: false,
-        bit_offset: 0,
-        bit_precision: 64,
-    };
+    let dt = Datatype::u64_le();
     let raw = vec![0u8; 8];
     let err = read_object_references(&raw, &dt, 8).unwrap_err();
     assert!(matches!(
