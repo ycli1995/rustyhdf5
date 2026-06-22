@@ -155,37 +155,13 @@ pub fn read_raw_data_cached(
     }
 }
 
-fn datatype_name(dt: &Datatype) -> &'static str {
-    match dt {
-        Datatype::FixedPoint { .. } => "FixedPoint",
-        Datatype::FloatingPoint { .. } => "FloatingPoint",
-        Datatype::String { .. } => "String",
-        Datatype::Time { .. } => "Time",
-        Datatype::BitField { .. } => "BitField",
-        Datatype::Opaque { .. } => "Opaque",
-        Datatype::Compound { .. } => "Compound",
-        Datatype::Reference { .. } => "Reference",
-        Datatype::Enumeration { .. } => "Enumeration",
-        Datatype::VariableLength { .. } => "VariableLength",
-        Datatype::Array { .. } => "Array",
-    }
-}
-
 fn ensure_numeric(dt: &Datatype, expected: &'static str) -> Result<(), FormatError> {
     match dt {
         Datatype::FixedPoint { .. } | Datatype::FloatingPoint { .. } => Ok(()),
         _ => Err(FormatError::TypeMismatch {
             expected,
-            actual: datatype_name(dt),
+            actual: dt.type_name(),
         }),
-    }
-}
-
-fn get_byte_order(dt: &Datatype) -> DatatypeByteOrder {
-    match dt {
-        Datatype::FixedPoint { byte_order, .. } => byte_order.clone(),
-        Datatype::FloatingPoint { byte_order, .. } => byte_order.clone(),
-        _ => DatatypeByteOrder::LittleEndian,
     }
 }
 
@@ -233,7 +209,7 @@ pub fn read_as_f64(raw: &[u8], datatype: &Datatype) -> Result<Vec<f64>, FormatEr
         return Ok(result);
     }
 
-    let order = get_byte_order(datatype);
+    let order = datatype.byte_order();
     let mut result = Vec::with_capacity(count);
 
     for i in 0..count {
@@ -272,7 +248,7 @@ fn convert_to_f64(
         }
         _ => Err(FormatError::TypeMismatch {
             expected: "numeric",
-            actual: datatype_name(dt),
+            actual: dt.type_name(),
         }),
     }
 }
@@ -288,7 +264,7 @@ pub fn read_as_i64(raw: &[u8], datatype: &Datatype) -> Result<Vec<i64>, FormatEr
         });
     }
     let count = raw.len() / elem_size;
-    let order = get_byte_order(datatype);
+    let order = datatype.byte_order();
     let mut result = Vec::with_capacity(count);
     for i in 0..count {
         let chunk = &raw[i * elem_size..(i + 1) * elem_size];
@@ -309,7 +285,7 @@ pub fn read_as_u64(raw: &[u8], datatype: &Datatype) -> Result<Vec<u64>, FormatEr
         });
     }
     let count = raw.len() / elem_size;
-    let order = get_byte_order(datatype);
+    let order = datatype.byte_order();
     let mut result = Vec::with_capacity(count);
     for i in 0..count {
         let chunk = &raw[i * elem_size..(i + 1) * elem_size];
@@ -330,7 +306,7 @@ pub fn read_as_f32(raw: &[u8], datatype: &Datatype) -> Result<Vec<f32>, FormatEr
         });
     }
     let count = raw.len() / elem_size;
-    let order = get_byte_order(datatype);
+    let order = datatype.byte_order();
     let mut result = Vec::with_capacity(count);
     for i in 0..count {
         let chunk = &raw[i * elem_size..(i + 1) * elem_size];
@@ -356,7 +332,7 @@ pub fn read_as_f32(raw: &[u8], datatype: &Datatype) -> Result<Vec<f32>, FormatEr
             _ => {
                 return Err(FormatError::TypeMismatch {
                     expected: "numeric",
-                    actual: datatype_name(datatype),
+                    actual: datatype.type_name(),
                 });
             }
         }
@@ -375,7 +351,7 @@ pub fn read_as_i32(raw: &[u8], datatype: &Datatype) -> Result<Vec<i32>, FormatEr
         });
     }
     let count = raw.len() / elem_size;
-    let order = get_byte_order(datatype);
+    let order = datatype.byte_order();
     let mut result = Vec::with_capacity(count);
     for i in 0..count {
         let chunk = &raw[i * elem_size..(i + 1) * elem_size];
@@ -423,7 +399,7 @@ pub fn read_as_strings(raw: &[u8], datatype: &Datatype) -> Result<Vec<String>, F
         }
         _ => Err(FormatError::TypeMismatch {
             expected: "String",
-            actual: datatype_name(datatype),
+            actual: datatype.type_name(),
         }),
     }
 }
@@ -482,7 +458,7 @@ pub fn read_compound_fields(
         }
         _ => Err(FormatError::TypeMismatch {
             expected: "Compound",
-            actual: datatype_name(datatype),
+            actual: datatype.type_name(),
         }),
     }
 }
@@ -561,7 +537,7 @@ pub fn read_enum_values(raw: &[u8], datatype: &Datatype) -> Result<Vec<EnumValue
         }
         _ => Err(FormatError::TypeMismatch {
             expected: "Enumeration",
-            actual: datatype_name(datatype),
+            actual: datatype.type_name(),
         }),
     }
 }
@@ -640,7 +616,7 @@ pub fn read_object_references(
         }
         _ => Err(FormatError::TypeMismatch {
             expected: "Reference(Object)",
-            actual: datatype_name(datatype),
+            actual: datatype.type_name(),
         }),
     }
 }
@@ -686,7 +662,7 @@ pub fn read_region_references(
         }
         _ => Err(FormatError::TypeMismatch {
             expected: "Reference(DatasetRegion)",
-            actual: datatype_name(datatype),
+            actual: datatype.type_name(),
         }),
     }
 }
@@ -728,7 +704,7 @@ pub fn read_array_flat(
         } => Ok((raw.to_vec(), *base_type.clone(), dimensions.clone())),
         _ => Err(FormatError::TypeMismatch {
             expected: "Array",
-            actual: datatype_name(datatype),
+            actual: datatype.type_name(),
         }),
     }
 }

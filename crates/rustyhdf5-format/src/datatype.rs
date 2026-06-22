@@ -797,6 +797,32 @@ impl Datatype {
         }
     }
 
+    /// Return the name of this type.
+    pub fn type_name(&self) -> &'static str {
+        match self {
+            Self::FixedPoint { .. } => "FixedPoint",
+            Self::FloatingPoint { .. } => "FloatingPoint",
+            Self::String { .. } => "String",
+            Self::Time { .. } => "Time",
+            Self::BitField { .. } => "BitField",
+            Self::Opaque { .. } => "Opaque",
+            Self::Compound { .. } => "Compound",
+            Self::Reference { .. } => "Reference",
+            Self::Enumeration { .. } => "Enumeration",
+            Self::VariableLength { .. } => "VariableLength",
+            Self::Array { .. } => "Array",
+        }
+    }
+
+    /// Return the byte order of this type.
+    pub fn byte_order(&self) -> DatatypeByteOrder {
+        match self {
+            Self::FixedPoint { byte_order, .. } => byte_order.clone(),
+            Self::FloatingPoint { byte_order, .. } => byte_order.clone(),
+            _ => DatatypeByteOrder::LittleEndian,
+        }
+    }
+
     /// Return the size in bytes of one element of this type.
     pub fn type_size(&self) -> u32 {
         match self {
