@@ -31,25 +31,35 @@ pub fn read_raw_data_zerocopy<'a>(
 
     match layout {
         DataLayout::Contiguous { address, size } => {
-            let addr = address.ok_or(FormatError::NoDataAllocated)?;
-            let addr = addr as usize;
-            let sz = *size as usize;
-            if sz != expected_size {
-                return Err(FormatError::DataSizeMismatch {
-                    expected: expected_size,
-                    actual: sz,
-                });
-            }
-            if addr + sz > file_data.len() {
-                return Err(FormatError::UnexpectedEof {
-                    expected: addr + sz,
-                    available: file_data.len(),
-                });
-            }
-            Ok(Some(&file_data[addr..addr + sz]))
+            let out = read_raw_data_zerocopy_contiguous(file_data, *address, *size, expected_size)?;
+            Ok(Some(out))
         }
         _ => Ok(None),
     }
+}
+
+fn read_raw_data_zerocopy_contiguous<'a>(
+    file_data: &'a [u8],
+    address: Option<u64>,
+    size: u64,
+    expected_size: usize,
+) -> Result<&'a [u8], FormatError> {
+    let addr = address.ok_or(FormatError::NoDataAllocated)?;
+    let addr = addr as usize;
+    let sz = size as usize;
+    if sz != expected_size {
+        return Err(FormatError::DataSizeMismatch {
+            expected: expected_size,
+            actual: sz,
+        });
+    }
+    if addr + sz > file_data.len() {
+        return Err(FormatError::UnexpectedEof {
+            expected: addr + sz,
+            available: file_data.len(),
+        });
+    }
+    Ok(&file_data[addr..addr + sz])
 }
 
 /// Read raw bytes for a dataset given its layout and the file data buffer.
@@ -91,26 +101,18 @@ pub fn read_raw_data_full(
             Ok(data.clone())
         }
         DataLayout::Contiguous { address, size } => {
-            let addr = address.ok_or(FormatError::NoDataAllocated)?;
-            let addr = addr as usize;
-            let sz = *size as usize;
-            if sz != expected_size {
-                return Err(FormatError::DataSizeMismatch {
-                    expected: expected_size,
-                    actual: sz,
-                });
-            }
-            if addr + sz > file_data.len() {
-                return Err(FormatError::UnexpectedEof {
-                    expected: addr + sz,
-                    available: file_data.len(),
-                });
-            }
-            Ok(file_data[addr..addr + sz].to_vec())
+            let out = read_raw_data_zerocopy_contiguous(file_data, *address, *size, expected_size)?;
+            Ok(out.to_vec())
         }
-        DataLayout::Chunked { .. } => {
-            read_chunked_data(file_data, layout, dataspace, datatype, pipeline, offset_size, length_size)
-        }
+        DataLayout::Chunked { .. } => read_chunked_data(
+            file_data,
+            layout,
+            dataspace,
+            datatype,
+            pipeline,
+            offset_size,
+            length_size,
+        ),
         DataLayout::Virtual { .. } => Err(FormatError::UnsupportedVersion(0)),
     }
 }
@@ -131,15 +133,24 @@ pub fn read_raw_data_cached(
     cache: &ChunkCache,
 ) -> Result<Vec<u8>, FormatError> {
     match layout {
-        DataLayout::Chunked { .. } => {
-            read_chunked_data_cached(
-                file_data, layout, dataspace, datatype, pipeline,
-                offset_size, length_size, cache,
-            )
-        }
+        DataLayout::Chunked { .. } => read_chunked_data_cached(
+            file_data,
+            layout,
+            dataspace,
+            datatype,
+            pipeline,
+            offset_size,
+            length_size,
+            cache,
+        ),
         _ => read_raw_data_full(
-            file_data, layout, dataspace, datatype, pipeline,
-            offset_size, length_size,
+            file_data,
+            layout,
+            dataspace,
+            datatype,
+            pipeline,
+            offset_size,
+            length_size,
         ),
     }
 }
@@ -196,15 +207,27 @@ pub fn read_as_f64(raw: &[u8], datatype: &Datatype) -> Result<Vec<f64>, FormatEr
 
     // Fast path: native-endian f64 can use bulk copy (zero conversion overhead)
     #[cfg(target_endian = "little")]
-    if matches!(datatype, Datatype::FloatingPoint { size: 8, byte_order: DatatypeByteOrder::LittleEndian, .. })
-    {
+    if matches!(
+        datatype,
+        Datatype::FloatingPoint {
+            size: 8,
+            byte_order: DatatypeByteOrder::LittleEndian,
+            ..
+        }
+    ) {
         let mut result = vec![0.0f64; count];
         // Safety equivalent via from_le_bytes — but we use safe transmute-free copy
         for (i, val) in result.iter_mut().enumerate() {
             let off = i * 8;
             *val = f64::from_le_bytes([
-                raw[off], raw[off+1], raw[off+2], raw[off+3],
-                raw[off+4], raw[off+5], raw[off+6], raw[off+7],
+                raw[off],
+                raw[off + 1],
+                raw[off + 2],
+                raw[off + 3],
+                raw[off + 4],
+                raw[off + 5],
+                raw[off + 6],
+                raw[off + 7],
             ]);
         }
         return Ok(result);
@@ -318,10 +341,16 @@ pub fn read_as_f32(raw: &[u8], datatype: &Datatype) -> Result<Vec<f32>, FormatEr
             Datatype::FloatingPoint { size: 8, .. } => {
                 result.push(read_f64_bytes(chunk, &order) as f32);
             }
-            Datatype::FixedPoint { signed: true, size, .. } => {
+            Datatype::FixedPoint {
+                signed: true, size, ..
+            } => {
                 result.push(read_signed_int(chunk, *size as usize, &order) as f32);
             }
-            Datatype::FixedPoint { signed: false, size, .. } => {
+            Datatype::FixedPoint {
+                signed: false,
+                size,
+                ..
+            } => {
                 result.push(read_unsigned_int(chunk, *size as usize, &order) as f32);
             }
             _ => {
@@ -384,10 +413,7 @@ pub fn read_as_strings(raw: &[u8], datatype: &Datatype) -> Result<Vec<String>, F
                         String::from_utf8_lossy(&chunk[..end]).into_owned()
                     }
                     crate::datatype::StringPadding::SpacePad => {
-                        let end = chunk
-                            .iter()
-                            .rposition(|&b| b != b' ')
-                            .map_or(0, |p| p + 1);
+                        let end = chunk.iter().rposition(|&b| b != b' ').map_or(0, |p| p + 1);
                         String::from_utf8_lossy(&chunk[..end]).into_owned()
                     }
                 };
@@ -420,7 +446,10 @@ pub struct CompoundFieldData {
 ///
 /// Each returned `CompoundFieldData` contains the raw bytes for that field
 /// across all elements, suitable for further typed conversion with `read_as_f64`, etc.
-pub fn read_compound_fields(raw: &[u8], datatype: &Datatype) -> Result<Vec<CompoundFieldData>, FormatError> {
+pub fn read_compound_fields(
+    raw: &[u8],
+    datatype: &Datatype,
+) -> Result<Vec<CompoundFieldData>, FormatError> {
     match datatype {
         Datatype::Compound { size, members } => {
             let elem_size = *size as usize;
@@ -459,9 +488,14 @@ pub fn read_compound_fields(raw: &[u8], datatype: &Datatype) -> Result<Vec<Compo
 }
 
 /// Extract a single field by name from compound raw data.
-pub fn read_compound_field(raw: &[u8], datatype: &Datatype, field_name: &str) -> Result<CompoundFieldData, FormatError> {
+pub fn read_compound_field(
+    raw: &[u8],
+    datatype: &Datatype,
+    field_name: &str,
+) -> Result<CompoundFieldData, FormatError> {
     let fields = read_compound_fields(raw, datatype)?;
-    fields.into_iter()
+    fields
+        .into_iter()
         .find(|f| f.name == field_name)
         .ok_or_else(|| FormatError::PathNotFound(field_name.into()))
 }
@@ -503,17 +537,25 @@ pub fn read_enum_values(raw: &[u8], datatype: &Datatype) -> Result<Vec<EnumValue
             for i in 0..count {
                 let val_bytes = raw[i * elem_size..(i + 1) * elem_size].to_vec();
                 let name = lookup.get(&val_bytes).cloned().unwrap_or_else(|| {
-                    let hex: Vec<String> = val_bytes.iter().map(|b| {
-                        let mut s = String::new();
-                        core::fmt::Write::write_fmt(&mut s, format_args!("{b:02x}")).ok();
-                        s
-                    }).collect();
+                    let hex: Vec<String> = val_bytes
+                        .iter()
+                        .map(|b| {
+                            let mut s = String::new();
+                            core::fmt::Write::write_fmt(&mut s, format_args!("{b:02x}")).ok();
+                            s
+                        })
+                        .collect();
                     let mut result = String::from("UNKNOWN(0x");
-                    for h in &hex { result.push_str(h); }
+                    for h in &hex {
+                        result.push_str(h);
+                    }
                     result.push(')');
                     result
                 });
-                result.push(EnumValue { name, raw_value: val_bytes });
+                result.push(EnumValue {
+                    name,
+                    raw_value: val_bytes,
+                });
             }
             Ok(result)
         }
@@ -675,11 +717,15 @@ fn read_ref_address(bytes: &[u8], size: usize) -> u64 {
 /// each dataset element contains D1*D2*... values of type T.
 /// This function returns the raw bytes as a flat buffer that can be
 /// converted with `read_as_f64`, `read_as_i32`, etc. using the base type.
-pub fn read_array_flat(raw: &[u8], datatype: &Datatype) -> Result<(Vec<u8>, Datatype, Vec<u32>), FormatError> {
+pub fn read_array_flat(
+    raw: &[u8],
+    datatype: &Datatype,
+) -> Result<(Vec<u8>, Datatype, Vec<u32>), FormatError> {
     match datatype {
-        Datatype::Array { base_type, dimensions } => {
-            Ok((raw.to_vec(), *base_type.clone(), dimensions.clone()))
-        }
+        Datatype::Array {
+            base_type,
+            dimensions,
+        } => Ok((raw.to_vec(), *base_type.clone(), dimensions.clone())),
         _ => Err(FormatError::TypeMismatch {
             expected: "Array",
             actual: datatype_name(datatype),
@@ -1019,9 +1065,18 @@ mod tests {
             size: 4,
             base_type: Box::new(Datatype::i32_le()),
             members: vec![
-                EnumMember { name: "RED".to_string(), value: 0i32.to_le_bytes().to_vec() },
-                EnumMember { name: "GREEN".to_string(), value: 1i32.to_le_bytes().to_vec() },
-                EnumMember { name: "BLUE".to_string(), value: 2i32.to_le_bytes().to_vec() },
+                EnumMember {
+                    name: "RED".to_string(),
+                    value: 0i32.to_le_bytes().to_vec(),
+                },
+                EnumMember {
+                    name: "GREEN".to_string(),
+                    value: 1i32.to_le_bytes().to_vec(),
+                },
+                EnumMember {
+                    name: "BLUE".to_string(),
+                    value: 2i32.to_le_bytes().to_vec(),
+                },
             ],
         };
         let mut raw = Vec::new();

@@ -210,10 +210,7 @@ impl fmt::Display for FormatError {
                 write!(f, "invalid datatype class: {c}")
             }
             Self::InvalidDatatypeVersion { class, version } => {
-                write!(
-                    f,
-                    "invalid datatype version {version} for class {class}"
-                )
+                write!(f, "invalid datatype version {version} for class {class}")
             }
             Self::InvalidStringPadding(p) => {
                 write!(f, "invalid string padding type: {p}")
@@ -323,8 +320,14 @@ impl fmt::Display for FormatError {
             Self::InvalidGlobalHeapVersion(v) => {
                 write!(f, "invalid global heap version: {v}")
             }
-            Self::GlobalHeapObjectNotFound { collection_address, index } => {
-                write!(f, "global heap object not found: collection {collection_address:#x}, index {index}")
+            Self::GlobalHeapObjectNotFound {
+                collection_address,
+                index,
+            } => {
+                write!(
+                    f,
+                    "global heap object not found: collection {collection_address:#x}, index {index}"
+                )
             }
             Self::VlDataError(msg) => {
                 write!(f, "variable-length data error: {msg}")

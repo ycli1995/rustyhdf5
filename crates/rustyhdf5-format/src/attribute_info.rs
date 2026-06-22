@@ -4,7 +4,7 @@
 //! and B-tree v2 indexes for attribute lookup by name or creation order.
 
 use crate::error::FormatError;
-use crate::utils::{read_offset, ensure_len, is_undefined_offset};
+use crate::utils::{ensure_len, is_undefined_offset, read_offset};
 
 /// Parsed Attribute Info message from an object header.
 #[derive(Debug, Clone, PartialEq)]

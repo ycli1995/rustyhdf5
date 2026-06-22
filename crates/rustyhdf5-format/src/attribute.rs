@@ -4,17 +4,17 @@
 use alloc::{string::String, vec::Vec};
 
 use crate::attribute_info::AttributeInfoMessage;
-use crate::btree_v2::{collect_btree_v2_records, BTreeV2Header};
+use crate::btree_v2::{BTreeV2Header, collect_btree_v2_records};
 use crate::data_read;
 use crate::dataspace::Dataspace;
 use crate::datatype::Datatype;
 use crate::error::FormatError;
-use crate::utils::ensure_len;
-use crate::utils::pad8;
 use crate::fractal_heap::FractalHeapHeader;
 use crate::message_type::MessageType;
 use crate::object_header::ObjectHeader;
 use crate::shared_message;
+use crate::utils::ensure_len;
+use crate::utils::pad8;
 use crate::vl_data;
 
 /// A parsed HDF5 attribute message.
@@ -233,7 +233,12 @@ impl AttributeMessage {
 }
 
 /// Compute raw data size based on dataspace and datatype, then extract from message bytes.
-fn compute_raw_data(data: &[u8], pos: usize, dataspace: &Dataspace, datatype: &Datatype) -> Vec<u8> {
+fn compute_raw_data(
+    data: &[u8],
+    pos: usize,
+    dataspace: &Dataspace,
+    datatype: &Datatype,
+) -> Vec<u8> {
     let num_elements = dataspace.num_elements() as usize;
     let elem_size = datatype.type_size() as usize;
     let expected_size = num_elements * elem_size;
@@ -356,14 +361,13 @@ fn extract_dense_attributes(
     let fh = FractalHeapHeader::parse(file_data, fh_addr as usize, offset_size, length_size)?;
 
     // Parse B-tree v2 for name index (type 8)
-    let btree_addr = attr_info.btree_name_index_address.ok_or(
-        FormatError::UnexpectedEof {
+    let btree_addr = attr_info
+        .btree_name_index_address
+        .ok_or(FormatError::UnexpectedEof {
             expected: 1,
             available: 0,
-        }
-    )?;
-    let btree_hdr =
-        BTreeV2Header::parse(file_data, btree_addr as usize, offset_size, length_size)?;
+        })?;
+    let btree_hdr = BTreeV2Header::parse(file_data, btree_addr as usize, offset_size, length_size)?;
     let records = collect_btree_v2_records(file_data, &btree_hdr, offset_size, length_size)?;
 
     let mut attrs = Vec::new();
