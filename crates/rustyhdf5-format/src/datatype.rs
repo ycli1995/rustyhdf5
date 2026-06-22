@@ -245,271 +245,105 @@ fn read_uint(data: &[u8], offset: usize, nbytes: usize) -> Result<u64, FormatErr
     })
 }
 
+/// Macro to generate FixedPoint (integer) type constructors.
+macro_rules! impl_fixed_point {
+    ($($fn_name:ident, $size:expr, $signed:expr, $bo:expr);+ $(;)?) => {
+        $(
+            pub fn $fn_name() -> Self {
+                Self::FixedPoint {
+                    size: $size,
+                    byte_order: $bo,
+                    signed: $signed,
+                    bit_offset: 0,
+                    bit_precision: ($size * 8) as u16,
+                }
+            }
+        )+
+    }
+}
+
+/// Macro to generate FloatingPoint type constructors (IEEE 754).
+macro_rules! impl_floating_point {
+    ($($fn_name:ident, $size:expr, $bo:expr, $exp_loc:expr, $exp_size:expr, $mant_loc:expr, $mant_size:expr, $exp_bias:expr);+ $(;)?) => {
+        $(
+            pub fn $fn_name() -> Self {
+                Self::FloatingPoint {
+                    size: $size,
+                    byte_order: $bo,
+                    bit_offset: 0,
+                    bit_precision: ($size * 8) as u16,
+                    exponent_location: $exp_loc,
+                    exponent_size: $exp_size,
+                    mantissa_location: $mant_loc,
+                    mantissa_size: $mant_size,
+                    exponent_bias: $exp_bias,
+                }
+            }
+        )+
+    }
+}
+
+/// Macro to generate String type constructors.
+macro_rules! impl_string {
+    ($($fn_name:ident, $padding:expr, $charset:expr);+ $(;)?) => {
+        $(
+            pub fn $fn_name(size: u32) -> Self {
+                Self::String {
+                    size,
+                    padding: $padding,
+                    charset: $charset,
+                }
+            }
+        )+
+    }
+}
+
 impl Datatype {
     // ---- Little-endian numeric type constructors ----
 
-    pub fn u8_le() -> Self {
-        Self::FixedPoint {
-            size: 1,
-            byte_order: DatatypeByteOrder::LittleEndian,
-            signed: false,
-            bit_offset: 0,
-            bit_precision: 8,
-        }
+    impl_fixed_point! {
+        u8_le,  1, false, DatatypeByteOrder::LittleEndian;
+        u16_le, 2, false, DatatypeByteOrder::LittleEndian;
+        u32_le, 4, false, DatatypeByteOrder::LittleEndian;
+        u64_le, 8, false, DatatypeByteOrder::LittleEndian;
+        i8_le,  1, true,  DatatypeByteOrder::LittleEndian;
+        i16_le, 2, true,  DatatypeByteOrder::LittleEndian;
+        i32_le, 4, true,  DatatypeByteOrder::LittleEndian;
+        i64_le, 8, true,  DatatypeByteOrder::LittleEndian
     }
 
-    pub fn u16_le() -> Self {
-        Self::FixedPoint {
-            size: 2,
-            byte_order: DatatypeByteOrder::LittleEndian,
-            signed: false,
-            bit_offset: 0,
-            bit_precision: 16,
-        }
+    impl_floating_point! {
+        f32_le, 4, DatatypeByteOrder::LittleEndian, 23, 8, 0, 23, 127;
+        f64_le, 8, DatatypeByteOrder::LittleEndian, 52, 11, 0, 52, 1023
     }
 
-    pub fn u32_le() -> Self {
-        Self::FixedPoint {
-            size: 4,
-            byte_order: DatatypeByteOrder::LittleEndian,
-            signed: false,
-            bit_offset: 0,
-            bit_precision: 32,
-        }
+    // ---- Big-endian numeric type constructors ----
+
+    impl_fixed_point! {
+        u8_be,  1, false, DatatypeByteOrder::BigEndian;
+        u16_be, 2, false, DatatypeByteOrder::BigEndian;
+        u32_be, 4, false, DatatypeByteOrder::BigEndian;
+        u64_be, 8, false, DatatypeByteOrder::BigEndian;
+        i8_be,  1, true,  DatatypeByteOrder::BigEndian;
+        i16_be, 2, true,  DatatypeByteOrder::BigEndian;
+        i32_be, 4, true,  DatatypeByteOrder::BigEndian;
+        i64_be, 8, true,  DatatypeByteOrder::BigEndian
     }
 
-    pub fn u64_le() -> Self {
-        Self::FixedPoint {
-            size: 8,
-            byte_order: DatatypeByteOrder::LittleEndian,
-            signed: false,
-            bit_offset: 0,
-            bit_precision: 64,
-        }
+    impl_floating_point! {
+        f32_be, 4, DatatypeByteOrder::BigEndian, 23, 8, 0, 23, 127;
+        f64_be, 8, DatatypeByteOrder::BigEndian, 52, 11, 0, 52, 1023
     }
 
-    pub fn i8_le() -> Self {
-        Self::FixedPoint {
-            size: 1,
-            byte_order: DatatypeByteOrder::LittleEndian,
-            signed: true,
-            bit_offset: 0,
-            bit_precision: 8,
-        }
-    }
+    // ---- String type constructors ----
 
-    pub fn i16_le() -> Self {
-        Self::FixedPoint {
-            size: 2,
-            byte_order: DatatypeByteOrder::LittleEndian,
-            signed: true,
-            bit_offset: 0,
-            bit_precision: 16,
-        }
-    }
-
-    pub fn i32_le() -> Self {
-        Self::FixedPoint {
-            size: 4,
-            byte_order: DatatypeByteOrder::LittleEndian,
-            signed: true,
-            bit_offset: 0,
-            bit_precision: 32,
-        }
-    }
-
-    pub fn i64_le() -> Self {
-        Self::FixedPoint {
-            size: 8,
-            byte_order: DatatypeByteOrder::LittleEndian,
-            signed: true,
-            bit_offset: 0,
-            bit_precision: 64,
-        }
-    }
-
-    pub fn f32_le() -> Self {
-        Self::FloatingPoint {
-            size: 4,
-            byte_order: DatatypeByteOrder::LittleEndian,
-            bit_offset: 0,
-            bit_precision: 32,
-            exponent_location: 23,
-            exponent_size: 8,
-            mantissa_location: 0,
-            mantissa_size: 23,
-            exponent_bias: 127,
-        }
-    }
-
-    pub fn f64_le() -> Self {
-        Self::FloatingPoint {
-            size: 8,
-            byte_order: DatatypeByteOrder::LittleEndian,
-            bit_offset: 0,
-            bit_precision: 64,
-            exponent_location: 52,
-            exponent_size: 11,
-            mantissa_location: 0,
-            mantissa_size: 52,
-            exponent_bias: 1023,
-        }
-    }
-
-    pub fn u8_be() -> Self {
-        Self::FixedPoint {
-            size: 1,
-            byte_order: DatatypeByteOrder::BigEndian,
-            signed: false,
-            bit_offset: 0,
-            bit_precision: 8,
-        }
-    }
-
-    pub fn u16_be() -> Self {
-        Self::FixedPoint {
-            size: 2,
-            byte_order: DatatypeByteOrder::BigEndian,
-            signed: false,
-            bit_offset: 0,
-            bit_precision: 16,
-        }
-    }
-
-    pub fn u32_be() -> Self {
-        Self::FixedPoint {
-            size: 4,
-            byte_order: DatatypeByteOrder::BigEndian,
-            signed: false,
-            bit_offset: 0,
-            bit_precision: 32,
-        }
-    }
-
-    pub fn u64_be() -> Self {
-        Self::FixedPoint {
-            size: 8,
-            byte_order: DatatypeByteOrder::BigEndian,
-            signed: false,
-            bit_offset: 0,
-            bit_precision: 64,
-        }
-    }
-
-    pub fn i8_be() -> Self {
-        Self::FixedPoint {
-            size: 1,
-            byte_order: DatatypeByteOrder::BigEndian,
-            signed: true,
-            bit_offset: 0,
-            bit_precision: 8,
-        }
-    }
-
-    pub fn i16_be() -> Self {
-        Self::FixedPoint {
-            size: 2,
-            byte_order: DatatypeByteOrder::BigEndian,
-            signed: true,
-            bit_offset: 0,
-            bit_precision: 16,
-        }
-    }
-
-    pub fn i32_be() -> Self {
-        Self::FixedPoint {
-            size: 4,
-            byte_order: DatatypeByteOrder::BigEndian,
-            signed: true,
-            bit_offset: 0,
-            bit_precision: 32,
-        }
-    }
-
-    pub fn i64_be() -> Self {
-        Self::FixedPoint {
-            size: 8,
-            byte_order: DatatypeByteOrder::BigEndian,
-            signed: true,
-            bit_offset: 0,
-            bit_precision: 64,
-        }
-    }
-
-    pub fn f32_be() -> Self {
-        Self::FloatingPoint {
-            size: 4,
-            byte_order: DatatypeByteOrder::BigEndian,
-            bit_offset: 0,
-            bit_precision: 32,
-            exponent_location: 23,
-            exponent_size: 8,
-            mantissa_location: 0,
-            mantissa_size: 23,
-            exponent_bias: 127,
-        }
-    }
-
-    pub fn f64_be() -> Self {
-        Self::FloatingPoint {
-            size: 8,
-            byte_order: DatatypeByteOrder::BigEndian,
-            bit_offset: 0,
-            bit_precision: 64,
-            exponent_location: 52,
-            exponent_size: 11,
-            mantissa_location: 0,
-            mantissa_size: 52,
-            exponent_bias: 1023,
-        }
-    }
-
-    pub fn string_null_terminate_ascii(size: u32) -> Self {
-        Self::String {
-            size,
-            padding: StringPadding::NullTerminate,
-            charset: CharacterSet::Ascii,
-        }
-    }
-
-    pub fn string_null_padded_ascii(size: u32) -> Self {
-        Self::String {
-            size,
-            padding: StringPadding::NullPad,
-            charset: CharacterSet::Ascii,
-        }
-    }
-
-    pub fn string_space_padded_ascii(size: u32) -> Self {
-        Self::String {
-            size,
-            padding: StringPadding::SpacePad,
-            charset: CharacterSet::Ascii,
-        }
-    }
-
-    pub fn string_null_terminate_utf8(size: u32) -> Self {
-        Self::String {
-            size,
-            padding: StringPadding::NullTerminate,
-            charset: CharacterSet::Utf8,
-        }
-    }
-
-    pub fn string_null_padded_utf8(size: u32) -> Self {
-        Self::String {
-            size,
-            padding: StringPadding::NullPad,
-            charset: CharacterSet::Utf8,
-        }
-    }
-
-    pub fn string_space_padded_utf8(size: u32) -> Self {
-        Self::String {
-            size,
-            padding: StringPadding::SpacePad,
-            charset: CharacterSet::Utf8,
-        }
+    impl_string! {
+        string_null_terminate_ascii, StringPadding::NullTerminate, CharacterSet::Ascii;
+        string_null_padded_ascii, StringPadding::NullPad, CharacterSet::Ascii;
+        string_space_padded_ascii, StringPadding::SpacePad, CharacterSet::Ascii;
+        string_null_terminate_utf8, StringPadding::NullTerminate, CharacterSet::Utf8;
+        string_null_padded_utf8, StringPadding::NullPad, CharacterSet::Utf8;
+        string_space_padded_utf8, StringPadding::SpacePad, CharacterSet::Utf8
     }
 
     /// Parse a datatype message from raw bytes.
