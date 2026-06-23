@@ -15,7 +15,7 @@ use crate::extensible_array::{ExtensibleArrayHeader, read_extensible_array_chunk
 use crate::filter_pipeline::FilterPipeline;
 use crate::filters::decompress_chunk;
 use crate::fixed_array::{FixedArrayHeader, read_fixed_array_chunks};
-use crate::utils::read_offset;
+use crate::utils::{ensure_len, read_offset};
 
 #[cfg(feature = "parallel")]
 use crate::parallel_read;
@@ -122,12 +122,7 @@ pub fn collect_chunk_info(
 
     // Parse B-tree v1 header
     let header_size = 8 + os * 2;
-    if offset + header_size > file_data.len() {
-        return Err(FormatError::UnexpectedEof {
-            expected: offset + header_size,
-            available: file_data.len(),
-        });
-    }
+    ensure_len(file_data, offset, header_size)?;
 
     if &file_data[offset..offset + 4] != b"TREE" {
         return Err(FormatError::InvalidBTreeSignature);
@@ -141,7 +136,8 @@ pub fn collect_chunk_info(
     let node_level = file_data[offset + 5];
     let entries_used = u16::from_le_bytes([file_data[offset + 6], file_data[offset + 7]]) as usize;
 
-    let mut pos = offset + 8 + os * 2; // skip left/right sibling
+    // skip left/right sibling
+    let mut pos = offset + header_size;
 
     // Key size: chunk_size(4) + filter_mask(4) + ndims * offset_size
     let key_size = 4 + 4 + ndims * os;
@@ -150,12 +146,7 @@ pub fn collect_chunk_info(
         // Leaf node: keys and children interleaved
         // key[0], child[0], key[1], child[1], ..., key[N-1], child[N-1], key[N]
         let needed = entries_used * (key_size + os) + key_size;
-        if pos + needed > file_data.len() {
-            return Err(FormatError::UnexpectedEof {
-                expected: pos + needed,
-                available: file_data.len(),
-            });
-        }
+        ensure_len(file_data, pos, needed)?;
 
         let mut chunks = Vec::with_capacity(entries_used);
         for _ in 0..entries_used {
@@ -196,12 +187,7 @@ pub fn collect_chunk_info(
     } else {
         // Internal node: recurse into children
         let needed = entries_used * (key_size + os) + key_size;
-        if pos + needed > file_data.len() {
-            return Err(FormatError::UnexpectedEof {
-                expected: pos + needed,
-                available: file_data.len(),
-            });
-        }
+        ensure_len(file_data, pos, needed)?;
 
         let mut child_addrs = Vec::with_capacity(entries_used);
         for _ in 0..entries_used {
@@ -219,6 +205,28 @@ pub fn collect_chunk_info(
         }
         Ok(all_chunks)
     }
+}
+
+pub fn collect_single_chunk_info(
+    chunk_dims: &[usize],
+    btree_addr: u64,
+    elem_size: usize,
+    rank: usize,
+    single_filtered_size: Option<u64>,
+    single_filter_mask: Option<u32>,
+) -> Vec<ChunkInfo> {
+    let chunk_byte_size: usize = chunk_dims.iter().product::<usize>() * elem_size;
+    let (csize, fmask) = if let Some(fs) = single_filtered_size {
+        (fs as u32, single_filter_mask.unwrap_or(0))
+    } else {
+        (chunk_byte_size as u32, 0)
+    };
+    vec![ChunkInfo {
+        chunk_size: csize,
+        filter_mask: fmask,
+        offsets: vec![0u64; rank],
+        address: btree_addr,
+    }]
 }
 
 /// Generate ChunkInfo entries for an implicit index (v4 index type 2).
@@ -265,6 +273,77 @@ pub fn generate_implicit_chunks(
     chunks
 }
 
+/// Helper to collect all types of ChunkInfo
+fn collect_chunk_info_all_types(
+    file_data: &[u8],
+    dataspace: &Dataspace,
+    version: u8,
+    chunk_index_type: Option<u8>,
+    offset_size: u8,
+    length_size: u8,
+    elem_size: usize,
+    btree_addr: u64,
+    chunk_dimensions: &[u32],
+    chunk_dims: &[usize],
+    single_filtered_size: Option<u64>,
+    single_filter_mask: Option<u32>,
+) -> Result<Vec<ChunkInfo>, FormatError> {
+    let rank = chunk_dims.len();
+    let ndims = chunk_dimensions.len();
+    match (version, chunk_index_type) {
+        (3, _) => collect_chunk_info(file_data, btree_addr, ndims, offset_size, length_size),
+        (4, Some(1)) => Ok(collect_single_chunk_info(
+            &chunk_dims,
+            btree_addr,
+            elem_size,
+            rank,
+            single_filtered_size,
+            single_filter_mask,
+        )),
+        (4, Some(2)) => Ok(generate_implicit_chunks(
+            btree_addr,
+            &dataspace.dimensions,
+            &chunk_dimensions[..rank],
+            elem_size as u32,
+        )),
+        (4, Some(3)) => {
+            let header =
+                FixedArrayHeader::parse(file_data, btree_addr as usize, offset_size, length_size)?;
+            read_fixed_array_chunks(
+                file_data,
+                &header,
+                &dataspace.dimensions,
+                &chunk_dimensions[..rank],
+                elem_size as u32,
+                offset_size,
+                length_size,
+            )
+        }
+        (4, Some(4)) => {
+            let header = ExtensibleArrayHeader::parse(
+                file_data,
+                btree_addr as usize,
+                offset_size,
+                length_size,
+            )?;
+            read_extensible_array_chunks(
+                file_data,
+                &header,
+                &dataspace.dimensions,
+                &chunk_dimensions[..rank],
+                elem_size as u32,
+                offset_size,
+                length_size,
+            )
+        }
+        (v, idx) => {
+            return Err(FormatError::ChunkedReadError(format!(
+                "unsupported chunked layout version={v}, index_type={idx:?}"
+            )));
+        }
+    }
+}
+
 /// Read a chunked dataset, decompressing chunks as needed.
 pub fn read_chunked_data(
     file_data: &[u8],
@@ -279,7 +358,7 @@ pub fn read_chunked_data(
         chunk_dimensions,
         version,
         chunk_index_type,
-        addr_opt,
+        btree_address,
         single_filtered_size,
         single_filter_mask,
     ) = match layout {
@@ -305,7 +384,7 @@ pub fn read_chunked_data(
         }
     };
 
-    let addr = addr_opt
+    let btree_addr = btree_address
         .ok_or_else(|| FormatError::ChunkedReadError("no address for chunked layout".into()))?;
 
     let elem_size = datatype.type_size() as usize;
@@ -329,72 +408,20 @@ pub fn read_chunked_data(
     }
 
     // Collect chunks based on version and index type
-    let chunks = match (version, chunk_index_type) {
-        (3, _) => {
-            let ndims = chunk_dimensions.len(); // rank+1
-            collect_chunk_info(file_data, addr, ndims, offset_size, length_size)?
-        }
-        (4, Some(1)) => {
-            // Single chunk — one chunk covering the entire dataset
-            let chunk_byte_size: usize = chunk_dims.iter().product::<usize>() * elem_size;
-            let (csize, fmask) = if let Some(fs) = single_filtered_size {
-                (fs as u32, single_filter_mask.unwrap_or(0))
-            } else {
-                (chunk_byte_size as u32, 0)
-            };
-            vec![ChunkInfo {
-                chunk_size: csize,
-                filter_mask: fmask,
-                offsets: vec![0u64; rank],
-                address: addr,
-            }]
-        }
-        (4, Some(2)) => {
-            // Implicit index — use spatial chunk dims only
-            let spatial_chunk_dims: Vec<u32> = chunk_dimensions[..rank].to_vec();
-            generate_implicit_chunks(
-                addr,
-                &dataspace.dimensions,
-                &spatial_chunk_dims,
-                elem_size as u32,
-            )
-        }
-        (4, Some(3)) => {
-            // Fixed Array — use spatial chunk dims only
-            let spatial_chunk_dims: Vec<u32> = chunk_dimensions[..rank].to_vec();
-            let header =
-                FixedArrayHeader::parse(file_data, addr as usize, offset_size, length_size)?;
-            read_fixed_array_chunks(
-                file_data,
-                &header,
-                &dataspace.dimensions,
-                &spatial_chunk_dims,
-                elem_size as u32,
-                offset_size,
-                length_size,
-            )?
-        }
-        (4, Some(4)) => {
-            // Extensible Array — use spatial chunk dims only
-            let spatial_chunk_dims: Vec<u32> = chunk_dimensions[..rank].to_vec();
-            let header =
-                ExtensibleArrayHeader::parse(file_data, addr as usize, offset_size, length_size)?;
-            read_extensible_array_chunks(
-                file_data,
-                &header,
-                &dataspace.dimensions,
-                &spatial_chunk_dims,
-                elem_size as u32,
-                offset_size,
-                length_size,
-            )?
-        }
-        (v, idx) => {
-            return Err(FormatError::ChunkedReadError(format!(
-                "unsupported chunked layout version={v}, index_type={idx:?}"
-            )));
-        }
-    };
+    let chunks = collect_chunk_info_all_types(
+        file_data,
+        dataspace,
+        version,
+        chunk_index_type,
+        offset_size,
+        length_size,
+        elem_size,
+        btree_addr,
+        chunk_dimensions,
+        &chunk_dims,
+        single_filtered_size,
+        single_filter_mask,
+    )?;
 
     // Assemble output
     let total_elements = dataspace.num_elements() as usize;
@@ -472,7 +499,7 @@ pub fn read_chunked_data_cached(
         chunk_dimensions,
         version,
         chunk_index_type,
-        addr_opt,
+        btree_address,
         single_filtered_size,
         single_filter_mask,
     ) = match layout {
@@ -498,7 +525,7 @@ pub fn read_chunked_data_cached(
         }
     };
 
-    let addr = addr_opt
+    let btree_addr = btree_address
         .ok_or_else(|| FormatError::ChunkedReadError("no address for chunked layout".into()))?;
 
     let elem_size = datatype.type_size() as usize;
@@ -521,69 +548,20 @@ pub fn read_chunked_data_cached(
 
     // Populate chunk index on first access
     if !cache.has_index() {
-        let chunks = match (version, chunk_index_type) {
-            (3, _) => collect_chunk_info(file_data, addr, ndims, offset_size, length_size)?,
-            (4, Some(1)) => {
-                let chunk_byte_size: usize = chunk_dims.iter().product::<usize>() * elem_size;
-                let (csize, fmask) = if let Some(fs) = single_filtered_size {
-                    (fs as u32, single_filter_mask.unwrap_or(0))
-                } else {
-                    (chunk_byte_size as u32, 0)
-                };
-                vec![ChunkInfo {
-                    chunk_size: csize,
-                    filter_mask: fmask,
-                    offsets: vec![0u64; rank],
-                    address: addr,
-                }]
-            }
-            (4, Some(2)) => {
-                let spatial_chunk_dims: Vec<u32> = chunk_dimensions[..rank].to_vec();
-                generate_implicit_chunks(
-                    addr,
-                    &dataspace.dimensions,
-                    &spatial_chunk_dims,
-                    elem_size as u32,
-                )
-            }
-            (4, Some(3)) => {
-                let spatial_chunk_dims: Vec<u32> = chunk_dimensions[..rank].to_vec();
-                let header =
-                    FixedArrayHeader::parse(file_data, addr as usize, offset_size, length_size)?;
-                read_fixed_array_chunks(
-                    file_data,
-                    &header,
-                    &dataspace.dimensions,
-                    &spatial_chunk_dims,
-                    elem_size as u32,
-                    offset_size,
-                    length_size,
-                )?
-            }
-            (4, Some(4)) => {
-                let spatial_chunk_dims: Vec<u32> = chunk_dimensions[..rank].to_vec();
-                let header = ExtensibleArrayHeader::parse(
-                    file_data,
-                    addr as usize,
-                    offset_size,
-                    length_size,
-                )?;
-                read_extensible_array_chunks(
-                    file_data,
-                    &header,
-                    &dataspace.dimensions,
-                    &spatial_chunk_dims,
-                    elem_size as u32,
-                    offset_size,
-                    length_size,
-                )?
-            }
-            (v, idx) => {
-                return Err(FormatError::ChunkedReadError(format!(
-                    "unsupported chunked layout version={v}, index_type={idx:?}"
-                )));
-            }
-        };
+        let chunks = collect_chunk_info_all_types(
+            file_data,
+            dataspace,
+            version,
+            chunk_index_type,
+            offset_size,
+            length_size,
+            elem_size,
+            btree_addr,
+            chunk_dimensions,
+            &chunk_dims,
+            single_filtered_size,
+            single_filter_mask,
+        )?;
         cache.populate_index(&chunks, rank);
     }
 
@@ -850,7 +828,7 @@ pub fn read_chunked_data_sweep(
         }
     };
 
-    let addr = addr_opt
+    let btree_addr = addr_opt
         .ok_or_else(|| FormatError::ChunkedReadError("no address for chunked layout".into()))?;
 
     let elem_size = datatype.type_size() as usize;
@@ -873,69 +851,20 @@ pub fn read_chunked_data_sweep(
 
     // Populate chunk index on first access
     if !cache.has_index() {
-        let chunks = match (version, chunk_index_type) {
-            (3, _) => collect_chunk_info(file_data, addr, ndims, offset_size, length_size)?,
-            (4, Some(1)) => {
-                let chunk_byte_size: usize = chunk_dims.iter().product::<usize>() * elem_size;
-                let (csize, fmask) = if let Some(fs) = single_filtered_size {
-                    (fs as u32, single_filter_mask.unwrap_or(0))
-                } else {
-                    (chunk_byte_size as u32, 0)
-                };
-                vec![ChunkInfo {
-                    chunk_size: csize,
-                    filter_mask: fmask,
-                    offsets: vec![0u64; rank],
-                    address: addr,
-                }]
-            }
-            (4, Some(2)) => {
-                let spatial_chunk_dims: Vec<u32> = chunk_dimensions[..rank].to_vec();
-                generate_implicit_chunks(
-                    addr,
-                    &dataspace.dimensions,
-                    &spatial_chunk_dims,
-                    elem_size as u32,
-                )
-            }
-            (4, Some(3)) => {
-                let spatial_chunk_dims: Vec<u32> = chunk_dimensions[..rank].to_vec();
-                let header =
-                    FixedArrayHeader::parse(file_data, addr as usize, offset_size, length_size)?;
-                read_fixed_array_chunks(
-                    file_data,
-                    &header,
-                    &dataspace.dimensions,
-                    &spatial_chunk_dims,
-                    elem_size as u32,
-                    offset_size,
-                    length_size,
-                )?
-            }
-            (4, Some(4)) => {
-                let spatial_chunk_dims: Vec<u32> = chunk_dimensions[..rank].to_vec();
-                let header = ExtensibleArrayHeader::parse(
-                    file_data,
-                    addr as usize,
-                    offset_size,
-                    length_size,
-                )?;
-                read_extensible_array_chunks(
-                    file_data,
-                    &header,
-                    &dataspace.dimensions,
-                    &spatial_chunk_dims,
-                    elem_size as u32,
-                    offset_size,
-                    length_size,
-                )?
-            }
-            (v, idx) => {
-                return Err(FormatError::ChunkedReadError(format!(
-                    "unsupported chunked layout version={v}, index_type={idx:?}"
-                )));
-            }
-        };
+        let chunks = collect_chunk_info_all_types(
+            file_data,
+            dataspace,
+            version,
+            chunk_index_type,
+            offset_size,
+            length_size,
+            elem_size,
+            btree_addr,
+            chunk_dimensions,
+            &chunk_dims,
+            single_filtered_size,
+            single_filter_mask,
+        )?;
         cache.populate_index(&chunks, rank);
     }
 

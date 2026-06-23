@@ -278,7 +278,7 @@ mod tests {
             (2, &[0xBE, 0xEF, 0xCA]),
         ]);
 
-        let raw = build_vl_refs(&["ab", "abc"], gcol_offset as u64, 1, 8);
+        // let raw = build_vl_refs(&["ab", "abc"], gcol_offset as u64, 1, 8);
         // Fix lengths to match actual byte lengths
         let mut raw_fixed = Vec::new();
         raw_fixed.extend_from_slice(&2u32.to_le_bytes());
