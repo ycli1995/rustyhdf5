@@ -91,6 +91,38 @@ impl DataLayout {
         Ok(Self::Contiguous { address, size })
     }
 
+    fn parse_chunk_dims(
+        data: &[u8],
+        pos: &mut usize,
+        ndims: usize,
+        dim_size_length: usize,
+    ) -> Result<Vec<u32>, FormatError> {
+        ensure_len(data, *pos, ndims * dim_size_length)?;
+        let mut chunk_dimensions = Vec::with_capacity(ndims);
+        for _ in 0..ndims {
+            let dim = match dim_size_length {
+                1 => data[*pos] as u32,
+                2 => u16::from_le_bytes([data[*pos], data[*pos + 1]]) as u32,
+                4 => {
+                    u32::from_le_bytes([data[*pos], data[*pos + 1], data[*pos + 2], data[*pos + 3]])
+                }
+                8 => {
+                    // Truncate to u32
+                    u32::from_le_bytes([data[*pos], data[*pos + 1], data[*pos + 2], data[*pos + 3]])
+                }
+                _ => {
+                    return Err(FormatError::UnexpectedEof {
+                        expected: *pos + dim_size_length,
+                        available: data.len(),
+                    });
+                }
+            };
+            chunk_dimensions.push(dim);
+            *pos += dim_size_length;
+        }
+        Ok(chunk_dimensions)
+    }
+
     fn parse_v3(
         data: &[u8],
         layout_class: u8,
@@ -110,7 +142,7 @@ impl DataLayout {
             2 => {
                 // Chunked
                 ensure_len(data, pos, 1)?;
-                let dimensionality = data[pos] as usize;
+                let ndims = data[pos] as usize;
                 let mut p = pos + 1;
                 // btree address first
                 let os = offset_size as usize;
@@ -121,14 +153,7 @@ impl DataLayout {
                     Some(read_offset(data, p, offset_size)?)
                 };
                 p += os;
-                // chunk dim sizes: dimensionality × 4 bytes each
-                ensure_len(data, p, dimensionality * 4)?;
-                let mut chunk_dimensions = Vec::with_capacity(dimensionality);
-                for _ in 0..dimensionality {
-                    let dim = u32::from_le_bytes([data[p], data[p + 1], data[p + 2], data[p + 3]]);
-                    chunk_dimensions.push(dim);
-                    p += 4;
-                }
+                let chunk_dimensions = Self::parse_chunk_dims(data, &mut p, ndims, 4)?;
                 Ok(Self::Chunked {
                     chunk_dimensions,
                     btree_address,
@@ -162,32 +187,13 @@ impl DataLayout {
                 // Chunked v4
                 ensure_len(data, pos, 3)?;
                 let flags = data[pos];
-                let dimensionality = data[pos + 1] as usize;
-                let dim_size_encoded_length = data[pos + 2] as usize;
+                let ndims = data[pos + 1] as usize;
+                let dim_size_length = data[pos + 2] as usize;
                 let mut p = pos + 3;
 
                 // dimension sizes
-                ensure_len(data, p, dimensionality * dim_size_encoded_length)?;
-                let mut chunk_dimensions = Vec::with_capacity(dimensionality);
-                for _ in 0..dimensionality {
-                    let val = match dim_size_encoded_length {
-                        1 => data[p] as u32,
-                        2 => u16::from_le_bytes([data[p], data[p + 1]]) as u32,
-                        4 => u32::from_le_bytes([data[p], data[p + 1], data[p + 2], data[p + 3]]),
-                        8 => {
-                            // Truncate to u32
-                            u32::from_le_bytes([data[p], data[p + 1], data[p + 2], data[p + 3]])
-                        }
-                        _ => {
-                            return Err(FormatError::UnexpectedEof {
-                                expected: p + dim_size_encoded_length,
-                                available: data.len(),
-                            });
-                        }
-                    };
-                    chunk_dimensions.push(val);
-                    p += dim_size_encoded_length;
-                }
+                let chunk_dimensions =
+                    Self::parse_chunk_dims(data, &mut p, ndims, dim_size_length)?;
 
                 // chunk index type
                 ensure_len(data, p, 1)?;
