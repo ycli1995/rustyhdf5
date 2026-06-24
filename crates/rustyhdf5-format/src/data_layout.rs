@@ -4,7 +4,7 @@
 use alloc::vec::Vec;
 
 use crate::error::FormatError;
-use crate::utils::{read_offset, ensure_len, is_undefined_bytes};
+use crate::utils::{ensure_len, is_undefined_bytes, read_offset};
 
 /// Parsed HDF5 data layout message.
 #[derive(Debug, Clone, PartialEq)]
@@ -63,6 +63,34 @@ impl DataLayout {
         }
     }
 
+    /// Parse compact layout from HDF5 message bytes.
+    fn parse_compact(data: &[u8], pos: usize) -> Result<Self, FormatError> {
+        ensure_len(data, pos, 2)?;
+        let data_size = u16::from_le_bytes([data[pos], data[pos + 1]]) as usize;
+        ensure_len(data, pos + 2, data_size)?;
+        let raw = data[pos + 2..pos + 2 + data_size].to_vec();
+        Ok(Self::Compact { data: raw })
+    }
+
+    /// Parse contiguous layout from HDF5 message bytes.
+    fn parse_contiguous(
+        data: &[u8],
+        pos: usize,
+        offset_size: u8,
+        length_size: u8,
+    ) -> Result<Self, FormatError> {
+        let os = offset_size as usize;
+        let ls = length_size as usize;
+        ensure_len(data, pos, os + ls)?;
+        let address = if is_undefined_bytes(data, pos, offset_size) {
+            None
+        } else {
+            Some(read_offset(data, pos, offset_size)?)
+        };
+        let size = read_length(data, pos + os, length_size)?;
+        Ok(Self::Contiguous { address, size })
+    }
+
     fn parse_v3(
         data: &[u8],
         layout_class: u8,
@@ -73,24 +101,11 @@ impl DataLayout {
         match layout_class {
             0 => {
                 // Compact
-                ensure_len(data, pos, 2)?;
-                let data_size = u16::from_le_bytes([data[pos], data[pos + 1]]) as usize;
-                ensure_len(data, pos + 2, data_size)?;
-                let raw = data[pos + 2..pos + 2 + data_size].to_vec();
-                Ok(Self::Compact { data: raw })
+                Self::parse_compact(data, pos)
             }
             1 => {
                 // Contiguous
-                let os = offset_size as usize;
-                let ls = length_size as usize;
-                ensure_len(data, pos, os + ls)?;
-                let address = if is_undefined_bytes(data, pos, offset_size) {
-                    None
-                } else {
-                    Some(read_offset(data, pos, offset_size)?)
-                };
-                let size = read_length(data, pos + os, length_size)?;
-                Ok(Self::Contiguous { address, size })
+                Self::parse_contiguous(data, pos, offset_size, length_size)
             }
             2 => {
                 // Chunked
@@ -137,24 +152,11 @@ impl DataLayout {
         match layout_class {
             0 => {
                 // Compact — same as v3
-                ensure_len(data, pos, 2)?;
-                let data_size = u16::from_le_bytes([data[pos], data[pos + 1]]) as usize;
-                ensure_len(data, pos + 2, data_size)?;
-                let raw = data[pos + 2..pos + 2 + data_size].to_vec();
-                Ok(Self::Compact { data: raw })
+                Self::parse_compact(data, pos)
             }
             1 => {
                 // Contiguous — same as v3
-                let os = offset_size as usize;
-                let ls = length_size as usize;
-                ensure_len(data, pos, os + ls)?;
-                let address = if is_undefined_bytes(data, pos, offset_size) {
-                    None
-                } else {
-                    Some(read_offset(data, pos, offset_size)?)
-                };
-                let size = read_length(data, pos + os, length_size)?;
-                Ok(Self::Contiguous { address, size })
+                Self::parse_contiguous(data, pos, offset_size, length_size)
             }
             2 => {
                 // Chunked v4
@@ -171,20 +173,10 @@ impl DataLayout {
                     let val = match dim_size_encoded_length {
                         1 => data[p] as u32,
                         2 => u16::from_le_bytes([data[p], data[p + 1]]) as u32,
-                        4 => u32::from_le_bytes([
-                            data[p],
-                            data[p + 1],
-                            data[p + 2],
-                            data[p + 3],
-                        ]),
+                        4 => u32::from_le_bytes([data[p], data[p + 1], data[p + 2], data[p + 3]]),
                         8 => {
                             // Truncate to u32
-                            u32::from_le_bytes([
-                                data[p],
-                                data[p + 1],
-                                data[p + 2],
-                                data[p + 3],
-                            ])
+                            u32::from_le_bytes([data[p], data[p + 1], data[p + 2], data[p + 3]])
                         }
                         _ => {
                             return Err(FormatError::UnexpectedEof {
@@ -218,7 +210,10 @@ impl DataLayout {
                             single_chunk_filtered_size = Some(read_length(data, p, length_size)?);
                             p += ls;
                             single_chunk_filter_mask = Some(u32::from_le_bytes([
-                                data[p], data[p + 1], data[p + 2], data[p + 3],
+                                data[p],
+                                data[p + 1],
+                                data[p + 2],
+                                data[p + 3],
                             ]));
                             p += 4;
                             if is_undefined_bytes(data, p, offset_size) {
@@ -381,7 +376,12 @@ mod tests {
         buf.extend_from_slice(&3u16.to_le_bytes());
         buf.extend_from_slice(&[1, 2, 3]);
         let layout = DataLayout::parse(&buf, 8, 8).unwrap();
-        assert_eq!(layout, DataLayout::Compact { data: vec![1, 2, 3] });
+        assert_eq!(
+            layout,
+            DataLayout::Compact {
+                data: vec![1, 2, 3]
+            }
+        );
     }
 
     #[test]
