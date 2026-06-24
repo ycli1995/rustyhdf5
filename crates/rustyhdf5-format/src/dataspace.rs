@@ -86,24 +86,14 @@ impl Dataspace {
         let mut pos = header_size;
 
         // Read current dimensions
-        let mut dimensions = Vec::with_capacity(rank as usize);
-        for _ in 0..rank {
-            let dim = read_length(data, pos, length_size)?;
-            dimensions.push(dim);
-            pos += ls;
-        }
+        let dimensions = Self::parse_dimensions(data, &mut pos, rank as usize, length_size)?;
 
         // Read max dimensions if flags bit 0 is set
-        let max_dimensions = if flags & 0x01 != 0 {
-            let mut max_dims = Vec::with_capacity(rank as usize);
-            for _ in 0..rank {
-                let val = read_length(data, pos, length_size)?;
-                max_dims.push(val);
-                pos += ls;
-            }
-            Some(max_dims)
-        } else {
+        let max_dimensions = if flags & 0x01 == 0 {
             None
+        } else {
+            let max_dims = Self::parse_dimensions(data, &mut pos, rank as usize, length_size)?;
+            Some(max_dims)
         };
 
         // v1 flags bit 1 = permutation indices present (skip them)
@@ -119,6 +109,22 @@ impl Dataspace {
             dimensions,
             max_dimensions,
         })
+    }
+
+    /// Parse dimension sizes from HDF5 message bytes.
+    fn parse_dimensions(
+        data: &[u8],
+        pos: &mut usize,
+        rank: usize,
+        length_size: u8,
+    ) -> Result<Vec<u64>, FormatError> {
+        let mut dims = Vec::with_capacity(rank);
+        for _ in 0..rank {
+            let val = read_length(data, *pos, length_size)?;
+            dims.push(val);
+            *pos += length_size as usize;
+        }
+        Ok(dims)
     }
 
     /// Serialize dataspace to HDF5 message bytes (v2 format).
