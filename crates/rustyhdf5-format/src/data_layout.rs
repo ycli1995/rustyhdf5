@@ -123,6 +123,23 @@ impl DataLayout {
         Ok(chunk_dimensions)
     }
 
+    fn parse_btree_address(
+        data: &[u8],
+        pos: &mut usize,
+        offset_size: u8,
+        skip: usize,
+    ) -> Result<Option<u64>, FormatError> {
+        ensure_len(data, *pos, skip + offset_size as usize)?;
+        *pos += skip;
+        let btree_addr = if is_undefined_bytes(data, *pos, offset_size) {
+            None
+        } else {
+            Some(read_offset(data, *pos, offset_size)?)
+        };
+        *pos += offset_size as usize;
+        Ok(btree_addr)
+    }
+
     fn parse_v3(
         data: &[u8],
         layout_class: u8,
@@ -145,14 +162,8 @@ impl DataLayout {
                 let ndims = data[pos] as usize;
                 let mut p = pos + 1;
                 // btree address first
-                let os = offset_size as usize;
-                ensure_len(data, p, os)?;
-                let btree_address = if is_undefined_bytes(data, p, offset_size) {
-                    None
-                } else {
-                    Some(read_offset(data, p, offset_size)?)
-                };
-                p += os;
+                let btree_address = Self::parse_btree_address(data, &mut p, offset_size, 0)?;
+                // chunk dimensions
                 let chunk_dimensions = Self::parse_chunk_dims(data, &mut p, ndims, 4)?;
                 Ok(Self::Chunked {
                     chunk_dimensions,
@@ -222,68 +233,32 @@ impl DataLayout {
                                 data[p + 3],
                             ]));
                             p += 4;
-                            if is_undefined_bytes(data, p, offset_size) {
-                                None
-                            } else {
-                                Some(read_offset(data, p, offset_size)?)
-                            }
-                        } else {
-                            // just address(offset_size)
-                            ensure_len(data, p, offset_size as usize)?;
-                            if is_undefined_bytes(data, p, offset_size) {
-                                None
-                            } else {
-                                Some(read_offset(data, p, offset_size)?)
-                            }
                         }
+                        // just address(offset_size)
+                        Self::parse_btree_address(data, &mut p, offset_size, 0)?
                     }
                     2 => {
                         // Implicit: just address
-                        ensure_len(data, p, offset_size as usize)?;
-                        if is_undefined_bytes(data, p, offset_size) {
-                            None
-                        } else {
-                            Some(read_offset(data, p, offset_size)?)
-                        }
+                        Self::parse_btree_address(data, &mut p, offset_size, 0)?
                     }
                     3 => {
                         // Fixed Array: max_dblk_page_nelmts_bits(1) + address(offset_size)
-                        ensure_len(data, p, 1 + offset_size as usize)?;
-                        p += 1; // skip max_dblk_page_nelmts_bits
-                        if is_undefined_bytes(data, p, offset_size) {
-                            None
-                        } else {
-                            Some(read_offset(data, p, offset_size)?)
-                        }
+                        // skip 1 = max_dblk_page_nelmts_bits
+                        Self::parse_btree_address(data, &mut p, offset_size, 1)?
                     }
                     4 => {
                         // Extensible Array: 5 creation params + address(offset_size)
-                        ensure_len(data, p, 5 + offset_size as usize)?;
-                        p += 5; // skip EA creation parameters
-                        if is_undefined_bytes(data, p, offset_size) {
-                            None
-                        } else {
-                            Some(read_offset(data, p, offset_size)?)
-                        }
+                        // skip 5 = EA creation parameters
+                        Self::parse_btree_address(data, &mut p, offset_size, 5)?
                     }
                     5 => {
                         // B-tree v2: node_size(4) + split_percent(1) + merge_percent(1) + address
-                        ensure_len(data, p, 6 + offset_size as usize)?;
-                        p += 6;
-                        if is_undefined_bytes(data, p, offset_size) {
-                            None
-                        } else {
-                            Some(read_offset(data, p, offset_size)?)
-                        }
+                        // skip 6 = node_size(4) + split_percent(1) + merge_percent(1)
+                        Self::parse_btree_address(data, &mut p, offset_size, 6)?
                     }
                     _ => {
                         // Unknown index type: try just address
-                        ensure_len(data, p, offset_size as usize)?;
-                        if is_undefined_bytes(data, p, offset_size) {
-                            None
-                        } else {
-                            Some(read_offset(data, p, offset_size)?)
-                        }
+                        Self::parse_btree_address(data, &mut p, offset_size, 0)?
                     }
                 };
 
