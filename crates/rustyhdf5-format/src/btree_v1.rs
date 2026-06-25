@@ -4,7 +4,7 @@
 use alloc::vec::Vec;
 
 use crate::error::FormatError;
-use crate::utils::{read_offset, is_undefined_bytes};
+use crate::utils::{ensure_len, is_undefined_bytes, read_offset};
 
 /// A parsed B-tree v1 node.
 #[derive(Debug, Clone)]
@@ -39,12 +39,7 @@ impl BTreeV1Node {
         // + left_sibling(offset_size) + right_sibling(offset_size)
         let os = offset_size as usize;
         let header_size = 8 + os * 2;
-        if offset + header_size > file_data.len() {
-            return Err(FormatError::UnexpectedEof {
-                expected: offset + header_size,
-                available: file_data.len(),
-            });
-        }
+        ensure_len(file_data, offset, header_size)?;
 
         if &file_data[offset..offset + 4] != b"TREE" {
             return Err(FormatError::InvalidBTreeSignature);
@@ -73,12 +68,7 @@ impl BTreeV1Node {
         let eu = entries_used as usize;
         let key_size = os; // For type 0, key = offset_size
         let needed = eu * (key_size + os) + key_size; // eu children + (eu+1) keys
-        if pos + needed > file_data.len() {
-            return Err(FormatError::UnexpectedEof {
-                expected: pos + needed,
-                available: file_data.len(),
-            });
-        }
+        ensure_len(file_data, offset, needed)?;
 
         let mut keys = Vec::with_capacity(eu + 1);
         let mut children = Vec::with_capacity(eu);

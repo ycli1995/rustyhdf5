@@ -13,6 +13,7 @@ use crate::dataspace::Dataspace;
 use crate::datatype::{Datatype, DatatypeByteOrder};
 use crate::error::FormatError;
 use crate::filter_pipeline::FilterPipeline;
+use crate::utils::ensure_len;
 
 /// Zero-copy read of contiguous raw data, returning a borrowed slice.
 ///
@@ -53,12 +54,7 @@ fn read_raw_data_zerocopy_contiguous<'a>(
             actual: sz,
         });
     }
-    if addr + sz > file_data.len() {
-        return Err(FormatError::UnexpectedEof {
-            expected: addr + sz,
-            available: file_data.len(),
-        });
-    }
+    ensure_len(file_data, addr, sz)?;
     Ok(&file_data[addr..addr + sz])
 }
 

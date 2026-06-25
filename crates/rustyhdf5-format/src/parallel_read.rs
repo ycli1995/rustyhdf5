@@ -12,6 +12,7 @@ use crate::error::FormatError;
 use crate::filter_pipeline::FilterPipeline;
 use crate::filters::decompress_chunk;
 use crate::lane_partition::{self, LaneStats, PartitionStats};
+use crate::utils::ensure_len;
 
 /// Threshold: only use parallel decompression when chunk count exceeds this.
 const PARALLEL_THRESHOLD: usize = 4;
@@ -73,12 +74,7 @@ pub fn decompress_chunks_lane_partitioned(
                 let c_addr = chunk_info.address as usize;
                 let size = chunk_info.chunk_size as usize;
 
-                if c_addr + size > file_data.len() {
-                    return Err(FormatError::UnexpectedEof {
-                        expected: c_addr + size,
-                        available: file_data.len(),
-                    });
-                }
+                ensure_len(file_data, 0, c_addr + size)?;
                 let raw_chunk = &file_data[c_addr..c_addr + size];
 
                 let decompressed = if chunk_info.filter_mask == 0 {
@@ -141,12 +137,7 @@ pub fn decompress_chunks_parallel(
         .map(|(index, chunk_info)| {
             let c_addr = chunk_info.address as usize;
             let size = chunk_info.chunk_size as usize;
-            if c_addr + size > file_data.len() {
-                return Err(FormatError::UnexpectedEof {
-                    expected: c_addr + size,
-                    available: file_data.len(),
-                });
-            }
+            ensure_len(file_data, 0, c_addr + size)?;
             let raw_chunk = &file_data[c_addr..c_addr + size];
 
             let decompressed = if chunk_info.filter_mask == 0 {
@@ -176,12 +167,7 @@ pub fn decompress_chunks_sequential(
     for chunk_info in chunks {
         let c_addr = chunk_info.address as usize;
         let size = chunk_info.chunk_size as usize;
-        if c_addr + size > file_data.len() {
-            return Err(FormatError::UnexpectedEof {
-                expected: c_addr + size,
-                available: file_data.len(),
-            });
-        }
+        ensure_len(file_data, 0, c_addr + size)?;
         let raw_chunk = &file_data[c_addr..c_addr + size];
 
         let decompressed = if let Some(pl) = pipeline {

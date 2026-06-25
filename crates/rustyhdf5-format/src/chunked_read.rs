@@ -58,12 +58,7 @@ fn decompress_all_chunks(
     for chunk_info in chunks {
         let c_addr = chunk_info.address as usize;
         let size = chunk_info.chunk_size as usize;
-        if c_addr + size > file_data.len() {
-            return Err(FormatError::UnexpectedEof {
-                expected: c_addr + size,
-                available: file_data.len(),
-            });
-        }
+        ensure_len(file_data, c_addr, size)?;
         let raw_chunk = &file_data[c_addr..c_addr + size];
 
         let decompressed = if let Some(pl) = pipeline {
@@ -595,12 +590,7 @@ pub fn read_chunked_data_cached(
             // Decompress from file
             let c_addr = chunk_info.address as usize;
             let size = chunk_info.chunk_size as usize;
-            if c_addr + size > file_data.len() {
-                return Err(FormatError::UnexpectedEof {
-                    expected: c_addr + size,
-                    available: file_data.len(),
-                });
-            }
+            ensure_len(file_data, c_addr, size)?;
             let raw_chunk = &file_data[c_addr..c_addr + size];
             let dec = if let Some(pl) = pipeline {
                 if chunk_info.filter_mask == 0 {
@@ -907,12 +897,7 @@ pub fn read_chunked_data_sweep(
             // Decompress from file
             let c_addr = chunk_info.address as usize;
             let size = chunk_info.chunk_size as usize;
-            if c_addr + size > file_data.len() {
-                return Err(FormatError::UnexpectedEof {
-                    expected: c_addr + size,
-                    available: file_data.len(),
-                });
-            }
+            ensure_len(file_data, c_addr, size)?;
             let raw_chunk = &file_data[c_addr..c_addr + size];
             let dec = if let Some(pl) = pipeline {
                 if chunk_info.filter_mask == 0 {

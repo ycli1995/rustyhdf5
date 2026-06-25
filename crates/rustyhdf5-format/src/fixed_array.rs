@@ -8,7 +8,7 @@ use alloc::{format, vec, vec::Vec};
 
 use crate::chunk_cache::ChunkInfo;
 use crate::error::FormatError;
-use crate::utils::{read_offset, is_undefined_bytes, read_variable_length};
+use crate::utils::{ensure_len, is_undefined_bytes, read_offset, read_variable_length};
 
 /// Parsed Fixed Array header (FAHD).
 #[derive(Debug, Clone)]
@@ -40,12 +40,7 @@ impl FixedArrayHeader {
         // FAHD signature(4) + version(1) + client_id(1) + element_size(1) +
         // max_nelmts_bits(1) + num_elements(length_size) + data_block_addr(offset_size) + checksum(4)
         let min_size = 4 + 1 + 1 + 1 + 1 + length_size as usize + offset_size as usize + 4;
-        if offset + min_size > file_data.len() {
-            return Err(FormatError::UnexpectedEof {
-                expected: offset + min_size,
-                available: file_data.len(),
-            });
-        }
+        ensure_len(file_data, offset, min_size)?;
 
         let d = &file_data[offset..];
         if &d[0..4] != b"FAHD" {
@@ -100,12 +95,7 @@ pub fn read_fixed_array_chunks(
 
     // Parse data block header: FADB(4) + version(1) + client_id(1) + header_address(offset_size)
     let db_header_size = 4 + 1 + 1 + offset_size as usize;
-    if db_offset + db_header_size > file_data.len() {
-        return Err(FormatError::UnexpectedEof {
-            expected: db_offset + db_header_size,
-            available: file_data.len(),
-        });
-    }
+    ensure_len(file_data, db_offset, db_header_size)?;
 
     let d = &file_data[db_offset..];
     if &d[0..4] != b"FADB" {
@@ -151,12 +141,7 @@ pub fn read_fixed_array_chunks(
         let elem_data = &file_data[db_offset + pos..];
         if header.client_id == 0 {
             // Non-filtered: just address
-            if pos + os > file_data.len() - db_offset {
-                return Err(FormatError::UnexpectedEof {
-                    expected: db_offset + pos + os,
-                    available: file_data.len(),
-                });
-            }
+            ensure_len(elem_data, 0, os)?;
             let address = read_offset(elem_data, 0, offset_size)?;
             pos += os;
 
@@ -175,13 +160,8 @@ pub fn read_fixed_array_chunks(
             // Filtered: address(offset_size) + chunk_size(variable) + filter_mask(4)
             let chunk_size_bytes = header.element_size as usize - os - 4;
             let elem_total = os + chunk_size_bytes + 4;
-            if pos + elem_total > file_data.len() - db_offset {
-                return Err(FormatError::UnexpectedEof {
-                    expected: db_offset + pos + elem_total,
-                    available: file_data.len(),
-                });
-            }
-
+            
+            ensure_len(elem_data, 0, elem_total)?;
             let address = read_offset(elem_data, 0, offset_size)?;
 
             // Read chunk_size (variable length, little-endian)
@@ -214,7 +194,7 @@ pub fn read_fixed_array_chunks(
 }
 
 /// Convert a linear chunk index to N-dimensional chunk offsets in dataset space.
-fn index_to_chunk_offsets(
+pub(crate) fn index_to_chunk_offsets(
     index: usize,
     num_chunks_per_dim: &[u64],
     chunk_dimensions: &[u32],
@@ -231,7 +211,6 @@ fn index_to_chunk_offsets(
     offsets
 }
 
-/// Read a variable-length little-endian unsigned integer.
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -4,7 +4,7 @@
 use alloc::string::String;
 
 use crate::error::FormatError;
-use crate::utils::read_offset;
+use crate::utils::{ensure_len, read_offset};
 
 /// Parsed HDF5 Local Heap header.
 #[derive(Debug, Clone)]
@@ -29,12 +29,7 @@ impl LocalHeap {
         let ls = length_size as usize;
         let os = offset_size as usize;
         let total = 8 + ls * 2 + os;
-        if offset + total > file_data.len() {
-            return Err(FormatError::UnexpectedEof {
-                expected: offset + total,
-                available: file_data.len(),
-            });
-        }
+        ensure_len(file_data, offset, total)?;
 
         if &file_data[offset..offset + 4] != b"HEAP" {
             return Err(FormatError::InvalidLocalHeapSignature);

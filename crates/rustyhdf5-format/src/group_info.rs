@@ -1,6 +1,6 @@
 //! HDF5 Group Info message parsing (message type 0x000A).
 
-use crate::error::FormatError;
+use crate::{error::FormatError, utils::ensure_len};
 
 /// Parsed Group Info message.
 #[derive(Debug, Clone, PartialEq)]
@@ -18,13 +18,7 @@ pub struct GroupInfoMessage {
 impl GroupInfoMessage {
     /// Parse a Group Info message from raw message data.
     pub fn parse(data: &[u8]) -> Result<Self, FormatError> {
-        if data.len() < 2 {
-            return Err(FormatError::UnexpectedEof {
-                expected: 2,
-                available: data.len(),
-            });
-        }
-
+        ensure_len(data, 0, 2)?;
         let version = data[0];
         if version != 0 {
             return Err(FormatError::InvalidGroupInfoVersion(version));
@@ -37,12 +31,7 @@ impl GroupInfoMessage {
         let mut pos = 2;
 
         let (max_compact, min_dense) = if has_link_phase {
-            if pos + 4 > data.len() {
-                return Err(FormatError::UnexpectedEof {
-                    expected: pos + 4,
-                    available: data.len(),
-                });
-            }
+            ensure_len(data, pos, 4)?;
             let mc = u16::from_le_bytes([data[pos], data[pos + 1]]);
             let md = u16::from_le_bytes([data[pos + 2], data[pos + 3]]);
             pos += 4;
@@ -52,12 +41,7 @@ impl GroupInfoMessage {
         };
 
         let (estimated_num_entries, estimated_name_length) = if has_estimated {
-            if pos + 4 > data.len() {
-                return Err(FormatError::UnexpectedEof {
-                    expected: pos + 4,
-                    available: data.len(),
-                });
-            }
+            ensure_len(data, pos, 4)?;
             let ne = u16::from_le_bytes([data[pos], data[pos + 1]]);
             let nl = u16::from_le_bytes([data[pos + 2], data[pos + 3]]);
             (Some(ne), Some(nl))

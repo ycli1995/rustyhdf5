@@ -11,7 +11,8 @@ use alloc::{format, vec, vec::Vec};
 
 use crate::chunk_cache::ChunkInfo;
 use crate::error::FormatError;
-use crate::utils::{read_offset, is_undefined_offset, is_undefined_bytes, read_variable_length};
+use crate::fixed_array::index_to_chunk_offsets;
+use crate::utils::{ensure_len, is_undefined_bytes, is_undefined_offset, read_offset, read_variable_length};
 
 /// Parsed Extensible Array header (AEHD).
 #[derive(Debug, Clone)]
@@ -37,6 +38,16 @@ pub struct ExtensibleArrayHeader {
 }
 
 impl ExtensibleArrayHeader {
+    /// Compute the size of this header in bytes (for write support).
+    pub fn serialized_size(offset_size: u8, length_size: u8) -> usize {
+        // EAHD: signature(4) + version(1) + client_id(1) + element_size(1) +
+        //   max_nelmts_bits(1) + idx_blk_elmts(1) + min_dblk_nelmts(1) +
+        //   super_blk_min_nelmts(1) + max_dblk_nelmts_bits(1) +
+        //   6 stats fields (each length_size) + index_block_address(offset_size) + checksum(4)
+        4 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1
+            + 6 * length_size as usize + offset_size as usize + 4
+    }
+
     /// Parse an Extensible Array header from file data at the given offset.
     pub fn parse(
         file_data: &[u8],
@@ -48,14 +59,8 @@ impl ExtensibleArrayHeader {
         //   max_nelmts_bits(1) + idx_blk_elmts(1) + min_dblk_nelmts(1) +
         //   super_blk_min_nelmts(1) + max_dblk_nelmts_bits(1) +
         //   6 stats fields (each length_size) + index_block_address(offset_size) + checksum(4)
-        let min_size = 4 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1
-            + 6 * length_size as usize + offset_size as usize + 4;
-        if offset + min_size > file_data.len() {
-            return Err(FormatError::UnexpectedEof {
-                expected: offset + min_size,
-                available: file_data.len(),
-            });
-        }
+        let min_size = Self::serialized_size(offset_size, length_size);
+        ensure_len(file_data, offset, min_size)?;
 
         let d = &file_data[offset..];
         if &d[0..4] != b"EAHD" {
@@ -102,12 +107,6 @@ impl ExtensibleArrayHeader {
             index_block_address,
         })
     }
-
-    /// Compute the size of this header in bytes (for write support).
-    pub fn serialized_size(offset_size: u8, length_size: u8) -> usize {
-        4 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1
-            + 6 * length_size as usize + offset_size as usize + 4
-    }
 }
 
 /// Read a single element from the extensible array element data.
@@ -128,12 +127,7 @@ fn read_element(
 
     if client_id == 0 {
         // Non-filtered: just address
-        if pos + os > data.len() {
-            return Err(FormatError::UnexpectedEof {
-                expected: pos + os,
-                available: data.len(),
-            });
-        }
+        ensure_len(data, pos, os)?;
         if is_undefined_bytes(data, pos, offset_size) {
             return Ok((None, os));
         }
@@ -152,12 +146,7 @@ fn read_element(
         // Filtered: address + compressed_size + filter_mask
         let chunk_size_bytes = element_size as usize - os - 4;
         let elem_total = os + chunk_size_bytes + 4;
-        if pos + elem_total > data.len() {
-            return Err(FormatError::UnexpectedEof {
-                expected: pos + elem_total,
-                available: data.len(),
-            });
-        }
+        ensure_len(data, pos, elem_total)?;
         if is_undefined_bytes(data, pos, offset_size) {
             return Ok((None, elem_total));
         }
@@ -183,24 +172,6 @@ fn read_element(
     }
 }
 
-/// Convert a linear chunk index to N-dimensional chunk offsets in dataset space.
-fn index_to_chunk_offsets(
-    index: usize,
-    num_chunks_per_dim: &[u64],
-    chunk_dimensions: &[u32],
-) -> Vec<u64> {
-    let rank = num_chunks_per_dim.len();
-    let mut offsets = vec![0u64; rank];
-    let mut remaining = index as u64;
-    for d in (0..rank).rev() {
-        let nchunks = num_chunks_per_dim[d];
-        let chunk_idx = remaining % nchunks;
-        remaining /= nchunks;
-        offsets[d] = chunk_idx * chunk_dimensions[d] as u64;
-    }
-    offsets
-}
-
 /// Collect elements from a data block at the given offset.
 #[allow(clippy::too_many_arguments)]
 fn read_data_block_elements(
@@ -216,12 +187,7 @@ fn read_data_block_elements(
 ) -> Result<Vec<ChunkInfo>, FormatError> {
     // AEDB: signature(4) + version(1) + client_id(1) + header_address(offset_size)
     let db_header_size = 4 + 1 + 1 + offset_size as usize;
-    if db_offset + db_header_size > file_data.len() {
-        return Err(FormatError::UnexpectedEof {
-            expected: db_offset + db_header_size,
-            available: file_data.len(),
-        });
-    }
+    ensure_len(file_data, db_offset, db_header_size)?;
 
     let d = &file_data[db_offset..];
     if &d[0..4] != b"EADB" {
@@ -265,13 +231,7 @@ fn read_data_block_elements(
         let npages = nelmts.div_ceil(page_nelmts);
         // Page bitmap: ceil(npages / 8) bytes
         let bitmap_size = npages.div_ceil(8);
-        // Read bitmap
-        if pos + bitmap_size > file_data.len() {
-            return Err(FormatError::UnexpectedEof {
-                expected: pos + bitmap_size,
-                available: file_data.len(),
-            });
-        }
+        ensure_len(file_data, pos, bitmap_size)?;
         let bitmap = &file_data[pos..pos + bitmap_size];
         pos += bitmap_size;
 
@@ -353,13 +313,9 @@ pub fn read_extensible_array_chunks(
 
     // Parse index block (AEIB)
     let ib_offset = header.index_block_address as usize;
-    let ib_header_size = 4 + 1 + 1 + offset_size as usize; // sig + ver + client + hdr_addr
-    if ib_offset + ib_header_size > file_data.len() {
-        return Err(FormatError::UnexpectedEof {
-            expected: ib_offset + ib_header_size,
-            available: file_data.len(),
-        });
-    }
+    // sig + ver + client + hdr_addr
+    let ib_header_size = 4 + 1 + 1 + offset_size as usize; 
+    ensure_len(file_data, ib_offset, ib_header_size)?;
 
     let ib = &file_data[ib_offset..];
     if &ib[0..4] != b"EAIB" {
@@ -545,12 +501,7 @@ fn read_super_block(
 
     // AESB: signature(4) + version(1) + client_id(1) + header_address(offset_size)
     let sb_header_size = 4 + 1 + 1 + os;
-    if sb_offset + sb_header_size > file_data.len() {
-        return Err(FormatError::UnexpectedEof {
-            expected: sb_offset + sb_header_size,
-            available: file_data.len(),
-        });
-    }
+    ensure_len(file_data, sb_offset, sb_header_size)?;
 
     if &file_data[sb_offset..sb_offset + 4] != b"EASB" {
         return Err(FormatError::ChunkedReadError(
@@ -563,12 +514,7 @@ fn read_super_block(
     // Read data block addresses
     let mut dblk_addrs: Vec<u64> = Vec::with_capacity(ndblks);
     for _ in 0..ndblks {
-        if pos + os > file_data.len() {
-            return Err(FormatError::UnexpectedEof {
-                expected: pos + os,
-                available: file_data.len(),
-            });
-        }
+        ensure_len(file_data, pos, os)?;
         let addr = read_offset(file_data, pos, offset_size)?;
         dblk_addrs.push(addr);
         pos += os;

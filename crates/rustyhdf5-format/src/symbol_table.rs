@@ -4,7 +4,7 @@
 use alloc::vec::Vec;
 
 use crate::error::FormatError;
-use crate::utils::read_offset;
+use crate::utils::{ensure_len, read_offset};
 
 /// Symbol Table message (type 0x0011) found in v1 group object headers.
 #[derive(Debug, Clone, PartialEq)]
@@ -19,12 +19,7 @@ impl SymbolTableMessage {
     /// Parse a Symbol Table message from raw message data bytes.
     pub fn parse(data: &[u8], offset_size: u8) -> Result<Self, FormatError> {
         let os = offset_size as usize;
-        if data.len() < os * 2 {
-            return Err(FormatError::UnexpectedEof {
-                expected: os * 2,
-                available: data.len(),
-            });
-        }
+        ensure_len(data, 0, os * 2)?;
         let btree_address = read_offset(data, 0, offset_size)?;
         let local_heap_address = read_offset(data, os, offset_size)?;
         Ok(Self {
@@ -62,12 +57,7 @@ impl SymbolTableNode {
         offset_size: u8,
     ) -> Result<Self, FormatError> {
         // signature(4) + version(1) + reserved(1) + number_of_symbols(2) = 8
-        if offset + 8 > file_data.len() {
-            return Err(FormatError::UnexpectedEof {
-                expected: offset + 8,
-                available: file_data.len(),
-            });
-        }
+        ensure_len(file_data, offset, 8)?;
 
         if &file_data[offset..offset + 4] != b"SNOD" {
             return Err(FormatError::InvalidSymbolTableNodeSignature);
@@ -86,12 +76,7 @@ impl SymbolTableNode {
         let entry_size = os + os + 4 + 4 + 16;
         let entries_start = offset + 8;
         let needed = entries_start + num_symbols * entry_size;
-        if needed > file_data.len() {
-            return Err(FormatError::UnexpectedEof {
-                expected: needed,
-                available: file_data.len(),
-            });
-        }
+        ensure_len(file_data, 0, needed)?;
 
         let mut entries = Vec::with_capacity(num_symbols);
         let mut pos = entries_start;

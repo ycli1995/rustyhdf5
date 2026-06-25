@@ -9,7 +9,7 @@ use alloc::{string::String, vec::Vec};
 
 use crate::error::FormatError;
 use crate::global_heap::GlobalHeapCollection;
-use crate::utils::{read_offset, is_undefined_offset};
+use crate::utils::{ensure_len, is_undefined_offset, read_offset};
 
 /// A parsed variable-length element reference (global heap ID).
 #[derive(Debug, Clone)]
@@ -30,12 +30,7 @@ pub fn parse_vl_references(
 ) -> Result<Vec<VlElement>, FormatError> {
     let elem_size = 4 + offset_size as usize + 4; // length + address + index
     let total = num_elements as usize * elem_size;
-    if raw_data.len() < total {
-        return Err(FormatError::UnexpectedEof {
-            expected: total,
-            available: raw_data.len(),
-        });
-    }
+    ensure_len(raw_data, 0, total)?;
 
     let mut elements = Vec::with_capacity(num_elements as usize);
     let mut pos = 0;
