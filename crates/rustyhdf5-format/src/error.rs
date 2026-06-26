@@ -9,16 +9,19 @@ use alloc::string::String;
 #[cfg(feature = "std")]
 use std::string::String;
 
-use core::fmt;
+use thiserror::Error;
 
 /// Errors that can occur when parsing HDF5 binary format structures.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Error)]
 pub enum FormatError {
     /// The HDF5 magic signature was not found at any valid offset.
+    #[error("HDF5 signature not found at any valid offset")]
     SignatureNotFound,
     /// The superblock version is not supported.
+    #[error("unsupported superblock version: {0}")]
     UnsupportedVersion(u8),
     /// Unexpected end of data.
+    #[error("unexpected EOF: need {expected} bytes, have {available}")]
     UnexpectedEof {
         /// Number of bytes expected.
         expected: usize,
@@ -26,18 +29,25 @@ pub enum FormatError {
         available: usize,
     },
     /// Invalid offset size (must be 2, 4, or 8).
+    #[error("invalid offset size: {0} (must be 2, 4, or 8)")]
     InvalidOffsetSize(u8),
     /// Invalid length size (must be 2, 4, or 8).
+    #[error("invalid length size: {0} (must be 2, 4, or 8)")]
     InvalidLengthSize(u8),
     /// Invalid object header signature.
+    #[error("invalid object header signature")]
     InvalidObjectHeaderSignature,
     /// Invalid object header version.
+    #[error("invalid object header version: {0}")]
     InvalidObjectHeaderVersion(u8),
     /// Unknown message type that is marked as must-understand.
+    #[error("unsupported message type {0:#06x} marked as must-understand")]
     UnsupportedMessage(u16),
     /// Invalid datatype class.
+    #[error("invalid datatype class: {0}")]
     InvalidDatatypeClass(u8),
     /// Invalid datatype version for a given class.
+    #[error("invalid datatype version {version} for class {class}")]
     InvalidDatatypeVersion {
         /// The type class.
         class: u8,
@@ -45,24 +55,34 @@ pub enum FormatError {
         version: u8,
     },
     /// Invalid string padding type.
+    #[error("invalid string padding type: {0}")]
     InvalidStringPadding(u8),
     /// Invalid character set.
+    #[error("invalid character set: {0}")]
     InvalidCharacterSet(u8),
     /// Invalid byte order.
+    #[error("invalid byte order: {0}")]
     InvalidByteOrder(u8),
     /// Invalid reference type.
+    #[error("invalid reference type: {0}")]
     InvalidReferenceType(u8),
     /// Invalid dataspace version.
+    #[error("invalid dataspace version: {0}")]
     InvalidDataspaceVersion(u8),
     /// Invalid dataspace type.
+    #[error("invalid dataspace type: {0}")]
     InvalidDataspaceType(u8),
     /// Invalid data layout version.
+    #[error("invalid data layout version: {0}")]
     InvalidLayoutVersion(u8),
     /// Invalid data layout class.
+    #[error("invalid data layout class: {0}")]
     InvalidLayoutClass(u8),
     /// No data allocated for contiguous layout.
+    #[error("no data allocated for contiguous layout")]
     NoDataAllocated,
     /// Type mismatch when reading data.
+    #[error("type mismatch: expected {expected}, got {actual}")]
     TypeMismatch {
         /// Expected type description.
         expected: &'static str,
@@ -70,6 +90,7 @@ pub enum FormatError {
         actual: &'static str,
     },
     /// Data size mismatch.
+    #[error("data size mismatch: expected {expected} bytes, got {actual} bytes")]
     DataSizeMismatch {
         /// Expected size in bytes.
         expected: usize,
@@ -77,54 +98,79 @@ pub enum FormatError {
         actual: usize,
     },
     /// Invalid local heap signature.
+    #[error("invalid local heap signature")]
     InvalidLocalHeapSignature,
     /// Invalid local heap version.
+    #[error("invalid local heap version: {0}")]
     InvalidLocalHeapVersion(u8),
     /// Invalid B-tree v1 signature.
+    #[error("invalid B-tree v1 signature")]
     InvalidBTreeSignature,
     /// Invalid B-tree node type.
+    #[error("invalid B-tree node type: {0}")]
     InvalidBTreeNodeType(u8),
     /// Invalid symbol table node signature.
+    #[error("invalid symbol table node signature")]
     InvalidSymbolTableNodeSignature,
     /// Invalid symbol table node version.
+    #[error("invalid symbol table node version: {0}")]
     InvalidSymbolTableNodeVersion(u8),
     /// Path not found during group traversal.
+    #[error("path not found: {0}")]
     PathNotFound(String),
     /// Invalid Link message version.
+    #[error("invalid link message version: {0}")]
     InvalidLinkVersion(u8),
     /// Invalid link type code.
+    #[error("invalid link type: {0}")]
     InvalidLinkType(u8),
     /// Invalid Link Info message version.
+    #[error("invalid link info message version: {0}")]
     InvalidLinkInfoVersion(u8),
     /// Invalid Group Info message version.
+    #[error("invalid group info message version: {0}")]
     InvalidGroupInfoVersion(u8),
     /// Invalid B-tree v2 signature.
+    #[error("invalid B-tree v2 signature")]
     InvalidBTreeV2Signature,
     /// Invalid B-tree v2 version.
+    #[error("invalid B-tree v2 version: {0}")]
     InvalidBTreeV2Version(u8),
     /// Invalid fractal heap signature.
+    #[error("invalid fractal heap signature")]
     InvalidFractalHeapSignature,
     /// Invalid fractal heap version.
+    #[error("invalid fractal heap version: {0}")]
     InvalidFractalHeapVersion(u8),
     /// Invalid heap ID type.
+    #[error("invalid heap ID type: {0}")]
     InvalidHeapIdType(u8),
     /// Invalid attribute message version.
+    #[error("invalid attribute message version: {0}")]
     InvalidAttributeVersion(u8),
     /// Invalid Attribute Info message version.
+    #[error("invalid attribute info message version: {0}")]
     InvalidAttributeInfoVersion(u8),
     /// Invalid shared message version.
+    #[error("invalid shared message version: {0}")]
     InvalidSharedMessageVersion(u8),
     /// Invalid SOHM table version.
+    #[error("invalid SOHM table version: {0}")]
     InvalidSohmTableVersion(u8),
     /// Invalid SOHM table signature (expected "SMTB").
+    #[error("invalid SOHM table signature (expected SMTB)")]
     InvalidSohmTableSignature,
     /// Invalid SOHM list signature (expected "SMLI").
+    #[error("invalid SOHM list signature (expected SMLI)")]
     InvalidSohmListSignature,
     /// Invalid global heap collection signature.
+    #[error("invalid global heap collection signature")]
     InvalidGlobalHeapSignature,
     /// Invalid global heap version.
+    #[error("invalid global heap version: {0}")]
     InvalidGlobalHeapVersion(u8),
     /// Global heap object not found.
+    #[error("global heap object not found: collection {collection_address:#x}, index {index}")]
     GlobalHeapObjectNotFound {
         /// Address of the collection.
         collection_address: u64,
@@ -132,24 +178,34 @@ pub enum FormatError {
         index: u16,
     },
     /// Variable-length data error.
+    #[error("variable-length data error: {0}")]
     VlDataError(String),
     /// Serialization error.
+    #[error("serialization error: {0}")]
     SerializationError(String),
     /// Dataset is missing data.
+    #[error("dataset is missing data")]
     DatasetMissingData,
     /// Dataset is missing shape.
+    #[error("dataset is missing shape")]
     DatasetMissingShape,
     /// Invalid filter pipeline version.
+    #[error("invalid filter pipeline version: {0}")]
     InvalidFilterPipelineVersion(u8),
     /// Unsupported filter ID.
+    #[error("unsupported filter: {0}")]
     UnsupportedFilter(u16),
     /// Filter processing error.
+    #[error("filter error: {0}")]
     FilterError(String),
     /// Decompression error.
+    #[error("decompression error: {0}")]
     DecompressionError(String),
     /// Compression error.
+    #[error("compression error: {0}")]
     CompressionError(String),
     /// Fletcher32 checksum mismatch.
+    #[error("fletcher32 mismatch: expected {expected:#010x}, computed {computed:#010x}")]
     Fletcher32Mismatch {
         /// Expected checksum.
         expected: u32,
@@ -157,10 +213,13 @@ pub enum FormatError {
         computed: u32,
     },
     /// Chunked dataset read error.
+    #[error("chunked read error: {0}")]
     ChunkedReadError(String),
     /// Chunk assembly error.
+    #[error("chunk assembly error: {0}")]
     ChunkAssemblyError(String),
     /// CRC32C checksum mismatch.
+    #[error("checksum mismatch: expected {expected:#010x}, computed {computed:#010x}")]
     ChecksumMismatch {
         /// The checksum stored in the file.
         expected: u32,
@@ -168,221 +227,18 @@ pub enum FormatError {
         computed: u32,
     },
     /// Maximum nesting/continuation depth exceeded (malformed data protection).
+    #[error("maximum nesting/continuation depth exceeded")]
     NestingDepthExceeded,
     /// Duplicate dataset name detected during parallel metadata merge.
+    #[error("duplicate dataset name during parallel merge: {0}")]
     DuplicateDatasetName(String),
+    /// General error message
+    #[error("Error: {0}")]
+    GeneralError(String),
 }
 
-impl fmt::Display for FormatError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::SignatureNotFound => {
-                write!(f, "HDF5 signature not found at any valid offset")
-            }
-            Self::UnsupportedVersion(v) => {
-                write!(f, "unsupported superblock version: {v}")
-            }
-            Self::UnexpectedEof {
-                expected,
-                available,
-            } => {
-                write!(f, "unexpected EOF: need {expected} bytes, have {available}")
-            }
-            Self::InvalidOffsetSize(s) => {
-                write!(f, "invalid offset size: {s} (must be 2, 4, or 8)")
-            }
-            Self::InvalidLengthSize(s) => {
-                write!(f, "invalid length size: {s} (must be 2, 4, or 8)")
-            }
-            Self::InvalidObjectHeaderSignature => {
-                write!(f, "invalid object header signature")
-            }
-            Self::InvalidObjectHeaderVersion(v) => {
-                write!(f, "invalid object header version: {v}")
-            }
-            Self::UnsupportedMessage(id) => {
-                write!(
-                    f,
-                    "unsupported message type {id:#06x} marked as must-understand"
-                )
-            }
-            Self::InvalidDatatypeClass(c) => {
-                write!(f, "invalid datatype class: {c}")
-            }
-            Self::InvalidDatatypeVersion { class, version } => {
-                write!(f, "invalid datatype version {version} for class {class}")
-            }
-            Self::InvalidStringPadding(p) => {
-                write!(f, "invalid string padding type: {p}")
-            }
-            Self::InvalidCharacterSet(c) => {
-                write!(f, "invalid character set: {c}")
-            }
-            Self::InvalidByteOrder(b) => {
-                write!(f, "invalid byte order: {b}")
-            }
-            Self::InvalidReferenceType(r) => {
-                write!(f, "invalid reference type: {r}")
-            }
-            Self::InvalidDataspaceVersion(v) => {
-                write!(f, "invalid dataspace version: {v}")
-            }
-            Self::InvalidDataspaceType(t) => {
-                write!(f, "invalid dataspace type: {t}")
-            }
-            Self::InvalidLayoutVersion(v) => {
-                write!(f, "invalid data layout version: {v}")
-            }
-            Self::InvalidLayoutClass(c) => {
-                write!(f, "invalid data layout class: {c}")
-            }
-            Self::NoDataAllocated => {
-                write!(f, "no data allocated for contiguous layout")
-            }
-            Self::TypeMismatch { expected, actual } => {
-                write!(f, "type mismatch: expected {expected}, got {actual}")
-            }
-            Self::DataSizeMismatch { expected, actual } => {
-                write!(
-                    f,
-                    "data size mismatch: expected {expected} bytes, got {actual} bytes"
-                )
-            }
-            Self::InvalidLocalHeapSignature => {
-                write!(f, "invalid local heap signature")
-            }
-            Self::InvalidLocalHeapVersion(v) => {
-                write!(f, "invalid local heap version: {v}")
-            }
-            Self::InvalidBTreeSignature => {
-                write!(f, "invalid B-tree v1 signature")
-            }
-            Self::InvalidBTreeNodeType(t) => {
-                write!(f, "invalid B-tree node type: {t}")
-            }
-            Self::InvalidSymbolTableNodeSignature => {
-                write!(f, "invalid symbol table node signature")
-            }
-            Self::InvalidSymbolTableNodeVersion(v) => {
-                write!(f, "invalid symbol table node version: {v}")
-            }
-            Self::PathNotFound(p) => {
-                write!(f, "path not found: {p}")
-            }
-            Self::InvalidLinkVersion(v) => {
-                write!(f, "invalid link message version: {v}")
-            }
-            Self::InvalidLinkType(t) => {
-                write!(f, "invalid link type: {t}")
-            }
-            Self::InvalidLinkInfoVersion(v) => {
-                write!(f, "invalid link info message version: {v}")
-            }
-            Self::InvalidGroupInfoVersion(v) => {
-                write!(f, "invalid group info message version: {v}")
-            }
-            Self::InvalidBTreeV2Signature => {
-                write!(f, "invalid B-tree v2 signature")
-            }
-            Self::InvalidBTreeV2Version(v) => {
-                write!(f, "invalid B-tree v2 version: {v}")
-            }
-            Self::InvalidFractalHeapSignature => {
-                write!(f, "invalid fractal heap signature")
-            }
-            Self::InvalidFractalHeapVersion(v) => {
-                write!(f, "invalid fractal heap version: {v}")
-            }
-            Self::InvalidHeapIdType(t) => {
-                write!(f, "invalid heap ID type: {t}")
-            }
-            Self::InvalidAttributeVersion(v) => {
-                write!(f, "invalid attribute message version: {v}")
-            }
-            Self::InvalidAttributeInfoVersion(v) => {
-                write!(f, "invalid attribute info message version: {v}")
-            }
-            Self::InvalidSharedMessageVersion(v) => {
-                write!(f, "invalid shared message version: {v}")
-            }
-            Self::InvalidSohmTableVersion(v) => {
-                write!(f, "invalid SOHM table version: {v}")
-            }
-            Self::InvalidSohmTableSignature => {
-                write!(f, "invalid SOHM table signature (expected SMTB)")
-            }
-            Self::InvalidSohmListSignature => {
-                write!(f, "invalid SOHM list signature (expected SMLI)")
-            }
-            Self::InvalidGlobalHeapSignature => {
-                write!(f, "invalid global heap collection signature")
-            }
-            Self::InvalidGlobalHeapVersion(v) => {
-                write!(f, "invalid global heap version: {v}")
-            }
-            Self::GlobalHeapObjectNotFound {
-                collection_address,
-                index,
-            } => {
-                write!(
-                    f,
-                    "global heap object not found: collection {collection_address:#x}, index {index}"
-                )
-            }
-            Self::VlDataError(msg) => {
-                write!(f, "variable-length data error: {msg}")
-            }
-            Self::SerializationError(msg) => {
-                write!(f, "serialization error: {msg}")
-            }
-            Self::DatasetMissingData => {
-                write!(f, "dataset is missing data")
-            }
-            Self::DatasetMissingShape => {
-                write!(f, "dataset is missing shape")
-            }
-            Self::InvalidFilterPipelineVersion(v) => {
-                write!(f, "invalid filter pipeline version: {v}")
-            }
-            Self::UnsupportedFilter(id) => {
-                write!(f, "unsupported filter: {id}")
-            }
-            Self::FilterError(msg) => {
-                write!(f, "filter error: {msg}")
-            }
-            Self::DecompressionError(msg) => {
-                write!(f, "decompression error: {msg}")
-            }
-            Self::CompressionError(msg) => {
-                write!(f, "compression error: {msg}")
-            }
-            Self::Fletcher32Mismatch { expected, computed } => {
-                write!(
-                    f,
-                    "fletcher32 mismatch: expected {expected:#010x}, computed {computed:#010x}"
-                )
-            }
-            Self::ChunkedReadError(msg) => {
-                write!(f, "chunked read error: {msg}")
-            }
-            Self::ChunkAssemblyError(msg) => {
-                write!(f, "chunk assembly error: {msg}")
-            }
-            Self::ChecksumMismatch { expected, computed } => {
-                write!(
-                    f,
-                    "checksum mismatch: expected {expected:#010x}, computed {computed:#010x}"
-                )
-            }
-            Self::NestingDepthExceeded => {
-                write!(f, "maximum nesting/continuation depth exceeded")
-            }
-            Self::DuplicateDatasetName(name) => {
-                write!(f, "duplicate dataset name during parallel merge: {name}")
-            }
-        }
+impl FormatError {
+    pub fn stop(e: &'static str) -> Self {
+        Self::GeneralError(e.to_string())
     }
 }
-
-#[cfg(feature = "std")]
-impl std::error::Error for FormatError {}
