@@ -3,11 +3,9 @@
 #[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
 
-use byteorder::{ByteOrder, LittleEndian};
-
 use crate::error::FormatError;
 use crate::message_type::MessageType;
-use crate::utils::{read_offset, ensure_len};
+use crate::utils::{ensure_len, read_offset};
 
 /// OHDR signature for v2 object headers.
 const OHDR_SIGNATURE: [u8; 4] = [b'O', b'H', b'D', b'R'];
@@ -77,89 +75,39 @@ impl ObjectHeader {
     ) -> Result<Self, FormatError> {
         // version(1) + reserved(1) + num_messages(2) + ref_count(4) + header_size(4) = 12
         // then pad to 8-byte alignment from start of header
-        ensure_len(data, offset, 12)?;
+        ensure_len(data, offset, 16)?;
 
         let version = data[offset];
         if version != 1 {
             return Err(FormatError::InvalidObjectHeaderVersion(version));
         }
-
-        let num_messages = LittleEndian::read_u16(&data[offset + 2..offset + 4]);
-        let reference_count = LittleEndian::read_u32(&data[offset + 4..offset + 8]);
-        let header_data_size = LittleEndian::read_u32(&data[offset + 8..offset + 12]) as usize;
+        // num_messages is not used in v1 headers
+        // let num_messages = u16::from_le_bytes([data[offset + 2], data[offset + 4]]);
+        let reference_count = u32::from_le_bytes([
+            data[offset + 4],
+            data[offset + 5],
+            data[offset + 6],
+            data[offset + 7],
+        ]);
+        let header_data_size = u32::from_le_bytes([
+            data[offset + 8],
+            data[offset + 9],
+            data[offset + 10],
+            data[offset + 11],
+        ]) as usize;
 
         // Pad to 8-byte alignment: header prefix is 12 bytes, pad to 16
-        let padding = 4; // pad 12-byte prefix to 16-byte alignment
-        let msg_start = offset.checked_add(12 + padding).ok_or(FormatError::UnexpectedEof {
-            expected: usize::MAX,
-            available: data.len(),
-        })?;
+        let msg_start = offset + 16;
 
-        ensure_len(data, msg_start, header_data_size)?;
-
-        let mut messages = Vec::new();
-        let mut pos = msg_start;
-        let msg_end = msg_start.checked_add(header_data_size).ok_or(FormatError::UnexpectedEof {
-            expected: usize::MAX,
-            available: data.len(),
-        })?;
-
-        for _ in 0..num_messages {
-            if pos + 8 > msg_end {
-                break;
-            }
-            let msg_type_raw = LittleEndian::read_u16(&data[pos..pos + 2]);
-            let msg_data_size = LittleEndian::read_u16(&data[pos + 2..pos + 4]) as usize;
-            let msg_flags = data[pos + 4];
-            // reserved(3) at pos+5..pos+8
-            pos += 8;
-
-            ensure_len(data, pos, msg_data_size)?;
-            let msg_type = MessageType::from_u16(msg_type_raw);
-
-            // Check if unknown + must-understand (bit 3 of msg_flags)
-            if let MessageType::Unknown(id) = msg_type {
-                if msg_flags & 0x08 != 0 {
-                    return Err(FormatError::UnsupportedMessage(id));
-                }
-            }
-
-            if msg_type != MessageType::Nil {
-                messages.push(HeaderMessage {
-                    msg_type,
-                    size: msg_data_size,
-                    flags: msg_flags,
-                    creation_order: None,
-                    data: data[pos..pos + msg_data_size].to_vec(),
-                });
-            }
-
-            pos += msg_data_size;
-
-            // Follow continuations
-            if msg_type == MessageType::ObjectHeaderContinuation {
-                let cont_msg_data = &messages.last()
-                    .ok_or(FormatError::InvalidObjectHeaderSignature)?.data;
-                if cont_msg_data.len() >= (offset_size as usize + length_size as usize) {
-                    let cont_offset =
-                        read_offset(cont_msg_data, 0, offset_size)? as usize;
-                    let cont_length =
-                        read_offset(cont_msg_data, offset_size as usize, length_size)?
-                            as usize;
-                    // Parse continuation block (v1: just raw messages, no signature)
-                    let cont_msgs = Self::parse_v1_continuation(
-                        data,
-                        cont_offset,
-                        cont_length,
-                        offset_size,
-                        length_size,
-                        32, // max continuation depth
-                    )?;
-                    messages.extend(cont_msgs);
-                }
-            }
-        }
-
+        // Parse messages with a max continuation depth of 32
+        let messages = Self::parse_v1_continuation(
+            data,
+            msg_start,
+            header_data_size,
+            offset_size,
+            length_size,
+            33, // max continuation depth = 32
+        )?;
         Ok(Self {
             version: 1,
             messages,
@@ -184,13 +132,14 @@ impl ObjectHeader {
             return Err(FormatError::NestingDepthExceeded);
         }
         ensure_len(data, offset, length)?;
-        let mut messages = Vec::new();
-        let mut pos = offset;
         let end = offset.saturating_add(length);
 
+        let mut messages = Vec::new();
+        let mut pos = offset;
         while pos + 8 <= end {
-            let msg_type_raw = LittleEndian::read_u16(&data[pos..pos + 2]);
-            let msg_data_size = LittleEndian::read_u16(&data[pos + 2..pos + 4]) as usize;
+            // msg_type(2) + msg_data_size(2) + msg_flags(1) + reserved(3)
+            let msg_type_raw = u16::from_le_bytes([data[pos], data[pos + 1]]);
+            let msg_data_size = u16::from_le_bytes([data[pos + 2], data[pos + 3]]) as usize;
             let msg_flags = data[pos + 4];
             pos += 8;
 
@@ -199,7 +148,7 @@ impl ObjectHeader {
             }
 
             let msg_type = MessageType::from_u16(msg_type_raw);
-
+            // Check if unknown + must-understand (bit 3 of msg_flags)
             if let MessageType::Unknown(id) = msg_type {
                 if msg_flags & 0x08 != 0 {
                     return Err(FormatError::UnsupportedMessage(id));
@@ -220,16 +169,21 @@ impl ObjectHeader {
 
             // Recursive continuations
             if msg_type == MessageType::ObjectHeaderContinuation {
-                let cont_msg_data = &messages.last()
-                    .ok_or(FormatError::InvalidObjectHeaderSignature)?.data;
+                let cont_msg_data = &messages
+                    .last()
+                    .ok_or(FormatError::InvalidObjectHeaderSignature)?
+                    .data;
                 if cont_msg_data.len() >= (offset_size as usize + length_size as usize) {
-                    let cont_offset =
-                        read_offset(cont_msg_data, 0, offset_size)? as usize;
+                    let cont_offset = read_offset(cont_msg_data, 0, offset_size)? as usize;
                     let cont_length =
-                        read_offset(cont_msg_data, offset_size as usize, length_size)?
-                            as usize;
+                        read_offset(cont_msg_data, offset_size as usize, length_size)? as usize;
+                    // Parse continuation block (v1: just raw messages, no signature)
                     let cont_msgs = Self::parse_v1_continuation(
-                        data, cont_offset, cont_length, offset_size, length_size,
+                        data,
+                        cont_offset,
+                        cont_length,
+                        offset_size,
+                        length_size,
                         depth_remaining - 1,
                     )?;
                     messages.extend(cont_msgs);
@@ -240,6 +194,27 @@ impl ObjectHeader {
         Ok(messages)
     }
 
+    fn checksum_mismatch_v2(
+        data: &[u8],
+        offset: usize,
+        chunk0_msg_end: usize,
+    ) -> Result<(), FormatError> {
+        let stored = u32::from_le_bytes([
+            data[chunk0_msg_end],
+            data[chunk0_msg_end + 1],
+            data[chunk0_msg_end + 2],
+            data[chunk0_msg_end + 3],
+        ]);
+        let computed = crate::checksum::jenkins_lookup3(&data[offset..chunk0_msg_end]);
+        if computed != stored {
+            return Err(FormatError::ChecksumMismatch {
+                expected: stored,
+                computed,
+            });
+        }
+        Ok(())
+    }
+
     fn parse_v2(
         data: &[u8],
         offset: usize,
@@ -248,7 +223,6 @@ impl ObjectHeader {
     ) -> Result<Self, FormatError> {
         // signature(4) + version(1) + flags(1) = 6
         ensure_len(data, offset, 6)?;
-
         let version = data[offset + 4];
         if version != 2 {
             return Err(FormatError::InvalidObjectHeaderVersion(version));
@@ -260,10 +234,17 @@ impl ObjectHeader {
         // Optional timestamps (flags bit 5)
         let (access_time, modification_time, change_time, birth_time) = if flags & 0x20 != 0 {
             ensure_len(data, pos, 16)?;
-            let at = LittleEndian::read_u32(&data[pos..pos + 4]);
-            let mt = LittleEndian::read_u32(&data[pos + 4..pos + 8]);
-            let ct = LittleEndian::read_u32(&data[pos + 8..pos + 12]);
-            let bt = LittleEndian::read_u32(&data[pos + 12..pos + 16]);
+            let at = u32::from_le_bytes([data[pos], data[pos + 1], data[pos + 2], data[pos + 3]]);
+            let mt =
+                u32::from_le_bytes([data[pos + 4], data[pos + 5], data[pos + 6], data[pos + 7]]);
+            let ct =
+                u32::from_le_bytes([data[pos + 8], data[pos + 9], data[pos + 10], data[pos + 11]]);
+            let bt = u32::from_le_bytes([
+                data[pos + 12],
+                data[pos + 13],
+                data[pos + 14],
+                data[pos + 15],
+            ]);
             pos += 16;
             (Some(at), Some(mt), Some(ct), Some(bt))
         } else {
@@ -280,33 +261,27 @@ impl ObjectHeader {
         // chunk0 size: width depends on flags bits 0-1
         let chunk_size_width = match flags & 0x03 {
             0 => 1u8,
-            1 => 2,
-            2 => 4,
-            3 => 8,
+            1 => 2u8,
+            2 => 4u8,
+            3 => 8u8,
             _ => unreachable!(),
         };
-        ensure_len(data, pos, chunk_size_width as usize)?;
         let chunk0_size = read_offset(data, pos, chunk_size_width)? as usize;
         pos += chunk_size_width as usize;
 
         let chunk0_msg_start = pos;
-        let chunk0_msg_end = pos.checked_add(chunk0_size).ok_or(FormatError::UnexpectedEof {
-            expected: usize::MAX,
-            available: data.len(),
-        })?;
+        let chunk0_msg_end = pos
+            .checked_add(chunk0_size)
+            .ok_or(FormatError::UnexpectedEof {
+                expected: usize::MAX,
+                available: data.len(),
+            })?;
 
         // Validate checksum: from OHDR signature through all messages (before checksum)
         ensure_len(data, chunk0_msg_end, 4)?;
         #[cfg(feature = "checksum")]
         {
-            let stored = LittleEndian::read_u32(&data[chunk0_msg_end..chunk0_msg_end + 4]);
-            let computed = crate::checksum::jenkins_lookup3(&data[offset..chunk0_msg_end]);
-            if computed != stored {
-                return Err(FormatError::ChecksumMismatch {
-                    expected: stored,
-                    computed,
-                });
-            }
+            Self::checksum_mismatch_v2(data, offset, chunk0_msg_end)?;
         }
 
         // Bit 2: attribute creation order tracked → messages include creation order field
@@ -373,10 +348,10 @@ impl ObjectHeader {
 
         while pos + msg_header_size <= end {
             let msg_type_raw = data[pos] as u16;
-            let msg_data_size = LittleEndian::read_u16(&data[pos + 1..pos + 3]) as usize;
+            let msg_data_size = u16::from_le_bytes([data[pos + 1], data[pos + 2]]) as usize;
             let msg_flags = data[pos + 3];
             let creation_order = if has_creation_order {
-                Some(LittleEndian::read_u16(&data[pos + 4..pos + 6]))
+                Some(u16::from_le_bytes([data[pos + 4], data[pos + 5]]))
             } else {
                 None
             };
@@ -451,14 +426,7 @@ impl ObjectHeader {
 
         #[cfg(feature = "checksum")]
         {
-            let stored = LittleEndian::read_u32(&data[checksum_pos..checksum_pos + 4]);
-            let computed = crate::checksum::jenkins_lookup3(&data[offset..checksum_pos]);
-            if computed != stored {
-                return Err(FormatError::ChecksumMismatch {
-                    expected: stored,
-                    computed,
-                });
-            }
+            Self::checksum_mismatch_v2(data, offset, checksum_pos)?;
         }
 
         Self::parse_v2_messages(
@@ -578,7 +546,7 @@ mod tests {
     fn parse_v1_two_messages() {
         let messages = [
             (0x0001u16, &[1u8, 2, 3, 4][..], 0u8), // Dataspace
-            (0x0008, &[5u8, 6][..], 0),              // DataLayout
+            (0x0008, &[5u8, 6][..], 0),            // DataLayout
         ];
         let data = build_v1_header(&messages, 8, 8);
         let hdr = ObjectHeader::parse(&data, 0, 8, 8).unwrap();
@@ -621,11 +589,7 @@ mod tests {
 
     #[test]
     fn parse_v2_with_timestamps() {
-        let data = build_v2_header(
-            0x20,
-            &[(0x01, &[1], 0)],
-            Some((100, 200, 300, 400)),
-        );
+        let data = build_v2_header(0x20, &[(0x01, &[1], 0)], Some((100, 200, 300, 400)));
         let hdr = ObjectHeader::parse(&data, 0, 8, 8).unwrap();
         assert_eq!(hdr.access_time, Some(100));
         assert_eq!(hdr.modification_time, Some(200));
@@ -677,7 +641,7 @@ mod tests {
             0x00,
             &[
                 (0x00, &[0, 0, 0, 0], 0), // NIL
-                (0x01, &[42], 0),           // Dataspace
+                (0x01, &[42], 0),         // Dataspace
             ],
             None,
         );
@@ -736,8 +700,8 @@ mod tests {
         let header = build_v2_header(
             0x00,
             &[
-                (0x01, &[42], 0),       // Dataspace
-                (0x10, &cont_data, 0),   // Continuation
+                (0x01, &[42], 0),      // Dataspace
+                (0x10, &cont_data, 0), // Continuation
             ],
             None,
         );

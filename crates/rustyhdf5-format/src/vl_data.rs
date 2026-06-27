@@ -28,7 +28,8 @@ pub fn parse_vl_references(
     num_elements: u64,
     offset_size: u8,
 ) -> Result<Vec<VlElement>, FormatError> {
-    let elem_size = 4 + offset_size as usize + 4; // length + address + index
+     // length(4) + address(offset_size) + index(4)
+    let elem_size = 4 + offset_size as usize + 4;
     let total = num_elements as usize * elem_size;
     ensure_len(raw_data, 0, total)?;
 

@@ -13,8 +13,13 @@ pub fn ensure_len(data: &[u8], offset: usize, needed: usize) -> Result<(), Forma
     }
 }
 
-/// Read a little-endian unsigned integer of `size` bytes (1, 2, 4, or 8) from `data` at `pos`.
+/// Read a offset from `data` at `pos` with size `size`.
 pub fn read_offset(data: &[u8], pos: usize, size: u8) -> Result<u64, FormatError> {
+    read_u64_info(data, pos, size, FormatError::InvalidOffsetSize(size))
+}
+
+/// Read a little-endian unsigned integer of `size` bytes (1, 2, 4, or 8) from `data` at `pos`.
+pub fn read_u64_info(data: &[u8], pos: usize, size: u8, err: FormatError) -> Result<u64, FormatError> {
     let s = size as usize;
     ensure_len(data, pos, s)?;
     let slice = &data[pos..pos + s];
@@ -25,7 +30,7 @@ pub fn read_offset(data: &[u8], pos: usize, size: u8) -> Result<u64, FormatError
         8 => u64::from_le_bytes([
             slice[0], slice[1], slice[2], slice[3], slice[4], slice[5], slice[6], slice[7],
         ]),
-        _ => return Err(FormatError::InvalidOffsetSize(size)),
+        _ => return Err(err),
     })
 }
 
