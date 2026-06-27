@@ -6,6 +6,9 @@ extern crate alloc;
 #[cfg(not(feature = "std"))]
 use alloc::string::String;
 
+#[cfg(not(feature = "std"))]
+use crate::alloc::string::ToString;
+
 #[cfg(feature = "std")]
 use std::string::String;
 
