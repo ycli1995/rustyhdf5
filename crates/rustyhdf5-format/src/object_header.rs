@@ -194,27 +194,6 @@ impl ObjectHeader {
         Ok(messages)
     }
 
-    fn checksum_mismatch_v2(
-        data: &[u8],
-        offset: usize,
-        chunk0_msg_end: usize,
-    ) -> Result<(), FormatError> {
-        let stored = u32::from_le_bytes([
-            data[chunk0_msg_end],
-            data[chunk0_msg_end + 1],
-            data[chunk0_msg_end + 2],
-            data[chunk0_msg_end + 3],
-        ]);
-        let computed = crate::checksum::jenkins_lookup3(&data[offset..chunk0_msg_end]);
-        if computed != stored {
-            return Err(FormatError::ChecksumMismatch {
-                expected: stored,
-                computed,
-            });
-        }
-        Ok(())
-    }
-
     fn parse_v2(
         data: &[u8],
         offset: usize,
@@ -278,10 +257,9 @@ impl ObjectHeader {
             })?;
 
         // Validate checksum: from OHDR signature through all messages (before checksum)
-        ensure_len(data, chunk0_msg_end, 4)?;
         #[cfg(feature = "checksum")]
         {
-            Self::checksum_mismatch_v2(data, offset, chunk0_msg_end)?;
+            crate::utils::checksum_mismatch(data, offset, chunk0_msg_end)?;
         }
 
         // Bit 2: attribute creation order tracked → messages include creation order field
@@ -426,7 +404,7 @@ impl ObjectHeader {
 
         #[cfg(feature = "checksum")]
         {
-            Self::checksum_mismatch_v2(data, offset, checksum_pos)?;
+            crate::utils::checksum_mismatch(data, offset, checksum_pos)?;
         }
 
         Self::parse_v2_messages(

@@ -19,7 +19,12 @@ pub fn read_offset(data: &[u8], pos: usize, size: u8) -> Result<u64, FormatError
 }
 
 /// Read a little-endian unsigned integer of `size` bytes (1, 2, 4, or 8) from `data` at `pos`.
-pub fn read_u64_info(data: &[u8], pos: usize, size: u8, err: FormatError) -> Result<u64, FormatError> {
+pub fn read_u64_info(
+    data: &[u8],
+    pos: usize,
+    size: u8,
+    err: FormatError,
+) -> Result<u64, FormatError> {
     let s = size as usize;
     ensure_len(data, pos, s)?;
     let slice = &data[pos..pos + s];
@@ -73,4 +78,19 @@ pub fn read_variable_length(data: &[u8], size: usize) -> Result<u64, FormatError
 /// Round up to the next multiple of 8.
 pub fn pad8(x: usize) -> usize {
     (x + 7) & !7
+}
+
+/// Check if the checksum at `end` matches the computed checksum of the data from `offset` to `end - 4`.
+#[cfg(feature = "checksum")]
+pub fn checksum_mismatch(data: &[u8], offset: usize, end: usize) -> Result<(), FormatError> {
+    ensure_len(data, offset, end - offset + 4)?;
+    let stored = u32::from_le_bytes([data[end], data[end + 1], data[end + 2], data[end + 3]]);
+    let computed = crate::checksum::jenkins_lookup3(&data[offset..end]);
+    if computed != stored {
+        return Err(FormatError::ChecksumMismatch {
+            expected: stored,
+            computed,
+        });
+    }
+    Ok(())
 }

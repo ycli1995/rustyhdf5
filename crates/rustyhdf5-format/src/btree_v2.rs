@@ -3,9 +3,6 @@
 #[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
 
-#[cfg(feature = "checksum")]
-use byteorder::{ByteOrder, LittleEndian};
-
 use crate::error::FormatError;
 use crate::utils::{read_offset, ensure_len};
 
@@ -63,11 +60,14 @@ impl BTreeV2Header {
         offset_size: u8,
         length_size: u8,
     ) -> Result<Self, FormatError> {
+        // Signature(4)
         ensure_len(file_data, offset, 4)?;
         if &file_data[offset..offset + 4] != b"BTHD" {
             return Err(FormatError::InvalidBTreeV2Signature);
         }
 
+        // Signature(4) + Version(1) + Type(1) + Node size(4) + Record size(2) + Depth(2) + 
+        // Split percent(1) + Merge percent(1)
         ensure_len(file_data, offset, 4 + 1 + 1 + 4 + 2 + 2 + 1 + 1)?;
         let version = file_data[offset + 4];
         if version != 0 {
@@ -104,15 +104,7 @@ impl BTreeV2Header {
         // Validate header checksum
         #[cfg(feature = "checksum")]
         {
-            ensure_len(file_data, pos, 4)?;
-            let stored = LittleEndian::read_u32(&file_data[pos..pos + 4]);
-            let computed = crate::checksum::jenkins_lookup3(&file_data[offset..pos]);
-            if computed != stored {
-                return Err(FormatError::ChecksumMismatch {
-                    expected: stored,
-                    computed,
-                });
-            }
+            crate::utils::checksum_mismatch(file_data, offset, pos)?;
         }
 
         Ok(Self {
@@ -200,17 +192,7 @@ fn parse_leaf_records(
     // Validate checksum: 4 bytes after records + padding
     #[cfg(feature = "checksum")]
     {
-        let checksum_pos = pos + total;
-        if file_data.len() >= checksum_pos + 4 {
-            let stored = LittleEndian::read_u32(&file_data[checksum_pos..checksum_pos + 4]);
-            let computed = crate::checksum::jenkins_lookup3(&file_data[offset..checksum_pos]);
-            if computed != stored {
-                return Err(FormatError::ChecksumMismatch {
-                    expected: stored,
-                    computed,
-                });
-            }
-        }
+        crate::utils::checksum_mismatch(file_data, offset, pos + total)?;
     }
 
     let mut records = Vec::with_capacity(num_records as usize);

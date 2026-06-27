@@ -3,9 +3,6 @@
 #[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
 
-#[cfg(feature = "checksum")]
-use byteorder::{ByteOrder, LittleEndian};
-
 use crate::error::FormatError;
 use crate::utils::{read_offset, ensure_len, is_undefined_offset};
 
@@ -144,15 +141,7 @@ impl FractalHeapHeader {
         // Validate header checksum
         #[cfg(feature = "checksum")]
         {
-            ensure_len(file_data, pos, 4)?;
-            let stored = LittleEndian::read_u32(&file_data[pos..pos + 4]);
-            let computed = crate::checksum::jenkins_lookup3(&file_data[offset..pos]);
-            if computed != stored {
-                return Err(FormatError::ChecksumMismatch {
-                    expected: stored,
-                    computed,
-                });
-            }
+            crate::utils::checksum_mismatch(file_data, offset, pos)?;
         }
 
         Ok(FractalHeapHeader {

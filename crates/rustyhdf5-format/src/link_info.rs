@@ -1,7 +1,7 @@
 //! HDF5 Link Info message parsing (message type 0x0002).
 
 use crate::error::FormatError;
-use crate::utils::{read_offset, ensure_len, is_undefined_offset};
+use crate::utils::{ensure_len, is_undefined_offset, read_offset};
 
 /// Parsed Link Info message from a v2 group object header.
 #[derive(Debug, Clone, PartialEq)]
@@ -50,29 +50,14 @@ impl LinkInfoMessage {
             None
         };
 
-        let fh_addr = read_offset(data, pos, offset_size)?;
+        let fractal_heap_address = Self::parse_addr(data, pos, offset_size)?;
         pos += offset_size as usize;
-        let fractal_heap_address = if is_undefined_offset(fh_addr, offset_size) {
-            None
-        } else {
-            Some(fh_addr)
-        };
-
-        let btree_addr = read_offset(data, pos, offset_size)?;
+        
+        let btree_name_index_address = Self::parse_addr(data, pos, offset_size)?;
         pos += offset_size as usize;
-        let btree_name_index_address = if is_undefined_offset(btree_addr, offset_size) {
-            None
-        } else {
-            Some(btree_addr)
-        };
 
         let btree_creation_order_address = if has_creation_order_index {
-            let addr = read_offset(data, pos, offset_size)?;
-            if is_undefined_offset(addr, offset_size) {
-                None
-            } else {
-                Some(addr)
-            }
+            Self::parse_addr(data, pos, offset_size)?
         } else {
             None
         };
@@ -83,6 +68,18 @@ impl LinkInfoMessage {
             btree_name_index_address,
             btree_creation_order_address,
         })
+    }
+
+    /// Parse an address from the message data.
+    /// Returns None if the address is undefined.
+    /// Returns Some(addr) if the address is valid.
+    fn parse_addr(data: &[u8], pos: usize, offset_size: u8) -> Result<Option<u64>, FormatError> {
+        let addr = read_offset(data, pos, offset_size)?;
+        if is_undefined_offset(addr, offset_size) {
+            Ok(None)
+        } else {
+            Ok(Some(addr))
+        }
     }
 }
 
